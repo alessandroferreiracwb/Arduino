@@ -1,27 +1,10 @@
-/* ESP32 TWAI receive example.
-  Receive messages and sends them over serial.
+/*
+No navegador, envie os comandos:
+CAN 125 → configura a 250 kbps
+CAN 250 → configura a 250 kbps
+CAN 500 → configura a 500 kbps
+CAN 1000 → configura a 1 Mbps
 
-  Connect a CAN bus transceiver to the RX/TX pins.
-  For example: SN65HVD230
-
-  TWAI_MODE_LISTEN_ONLY is used so that the TWAI controller will not influence the bus.
-
-  The API gives other possible speeds and alerts:
-  https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/twai.html
-
-  Example output from a can bus message:
-  -> Message received
-  -> Message is in Standard Format
-  -> ID: 604
-  -> Byte: 0 = 00, 1 = 0f, 2 = 13, 3 = 02, 4 = 00, 5 = 00, 6 = 08, 7 = 00
-
-  Example output with alerts:
-  -> Alert: A (Bit, Stuff, CRC, Form, ACK) error has occurred on the bus.
-  -> Bus error count: 171
-  -> Alert: The RX queue is full causing a received frame to be lost.
-  -> RX buffered: 4  RX missed: 46 RX overrun 0
-
-  created 05-11-2022 by Stephan Martin (designer2k2)
 */
 
 #include "driver/twai.h"
@@ -36,32 +19,95 @@
 #endif
 #include <ESPAsyncWebServer.h>
 #include <WebSerialLite.h>
+#include <WebSerial.h>
+
+int led=0;
+// Pins used to connect to CAN bus transceiver:
+#define RX_PIN 4
+#define TX_PIN 5
 
 AsyncWebServer server(80);
 
 const char* ssid = "AP_ESP"; // Your WiFi AP SSID 
 const char* password = "admin1234"; // Your WiFi Password
 
+
 /* Message callback of WebSerial */
 void recvMsg(uint8_t *data, size_t len){
-  WebSerial.println("Received Data...");
   String d = "";
-  for(int i=0; i < len; i++){
+  for(int i = 0; i < len; i++) {
     d += char(data[i]);
   }
-  WebSerial.println(d);
+  WebSerial.println("Recebido: " + d);
+
+  if(d == "20") digitalWrite(2, 1);
+  else if(d == "21") digitalWrite(2, 0);
+  else if (d.startsWith("CAN ")) {
+    int bitrate = d.substring(4).toInt();
+    startCAN(bitrate);
+  } else {
+    WebSerial.println("Comando desconhecido.");
+  }
 }
 
-// Pins used to connect to CAN bus transceiver:
-#define RX_PIN 4
-#define TX_PIN 5
+
+
 
 // Intervall:
 #define POLLING_RATE_MS 1000
 
 static bool driver_installed = false;
 
+bool startCAN(int bitrate_kbps) {
+  if (driver_installed) {
+    twai_stop();
+    twai_driver_uninstall();
+    driver_installed = false;
+  }
+
+  twai_timing_config_t t_config;
+  switch (bitrate_kbps) {
+    case 125:
+      t_config = TWAI_TIMING_CONFIG_125KBITS();
+      break;
+    case 250:
+      t_config = TWAI_TIMING_CONFIG_250KBITS();
+      break;
+    case 500:
+      t_config = TWAI_TIMING_CONFIG_500KBITS();
+      break;
+    case 1000:
+      t_config = TWAI_TIMING_CONFIG_1MBITS();
+      break;
+    default:
+      WebSerial.println("Velocidade CAN inválida!");
+      return false;
+  }
+
+  twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT((gpio_num_t)TX_PIN, (gpio_num_t)RX_PIN, TWAI_MODE_LISTEN_ONLY);
+  twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
+
+  if (twai_driver_install(&g_config, &t_config, &f_config) != ESP_OK) {
+    WebSerial.println("Falha ao instalar o driver CAN");
+    return false;
+  }
+
+  if (twai_start() != ESP_OK) {
+    WebSerial.println("Falha ao iniciar o driver CAN");
+    return false;
+  }
+
+  uint32_t alerts_to_enable = TWAI_ALERT_RX_DATA | TWAI_ALERT_ERR_PASS | TWAI_ALERT_BUS_ERROR | TWAI_ALERT_RX_QUEUE_FULL;
+  twai_reconfigure_alerts(alerts_to_enable, NULL);
+
+  driver_installed = true;
+  WebSerial.printf("CAN iniciada a %d kbps\n", bitrate_kbps);
+  return true;
+}
+
+
 void setup() {
+  pinMode(2, OUTPUT);
   // Start Serial:
   Serial.begin(9600);
 
@@ -77,17 +123,10 @@ void setup() {
     server.begin();
 
   // Initialize configuration structures using macro initializers
-  twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT((gpio_num_t)TX_PIN, (gpio_num_t)RX_PIN, TWAI_MODE_LISTEN_ONLY);
-  twai_timing_config_t t_config = TWAI_TIMING_CONFIG_250KBITS();  //Look in the api-reference for other speed sets.
-  twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
+  startCAN(250); // CAN padrão inicial: 250 kbps
 
-  // Install TWAI driver
-  if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK) {
-    Serial.println("Driver installed");
-  } else {
-    Serial.println("Failed to install driver");
-    return;
-  }
+
+ 
 
   // Start TWAI driver
   if (twai_start() == ESP_OK) {
@@ -130,7 +169,8 @@ static void handle_rx_message(twai_message_t& message) {
 }
 
 
-void loop() {
+void loop() { 
+   
   if (!driver_installed) {
     // Driver not installed
     delay(1000);
@@ -165,18 +205,6 @@ void loop() {
       handle_rx_message(message);
     }
   }
-    //delay(1000);
-    /****************************************************************/
-    // we suggest you to use `print + "\n"` instead of `println`
-    // because the println will send "\n" separately, which means
-    // it will cost a sending buffer just for storage "\n". (there
-    // only 8 buffer space in ESPAsyncWebServer by default)
-    //WebSerial.print(F("IP address: "));
-    // if not use toString the ip will be sent in 7 part,
-    // which means it will cost 7 sending buffer.
-    //WebSerial.println(WiFi.localIP().toString());
-    //WebSerial.printf("Millis=%lu\n", millis());
-    //WebSerial.printf("Free heap=[%u]\n", ESP.getFreeHeap());
-    /************************************************************/
+    
   
 }
