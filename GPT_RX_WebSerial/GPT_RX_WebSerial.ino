@@ -37,6 +37,7 @@ void setup() {
   WiFi.softAP(ssid, password);
   IPAddress IP = WiFi.softAPIP();
   Serial.println("WebSerial em: http://" + IP.toString() + "/webserial");
+  Serial.println("Valor inicial da UART2 = 9600 bps");
 
   WebSerial.begin(&server);
   WebSerial.onMessage(recvMsg);
