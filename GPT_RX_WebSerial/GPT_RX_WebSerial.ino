@@ -1,8 +1,13 @@
-#include <Arduino.h>
+/*********************************************************/
 
+// Para mudar a velocidade da Serial envie:
+// baud=xxxx Ex: baud=9600
+
+
+/********************************************************/
+#include <Arduino.h>
 #include <WiFi.h>
 #include <AsyncTCP.h>
-
 #include <ESPAsyncWebServer.h>
 #include <WebSerialLite.h>
 
