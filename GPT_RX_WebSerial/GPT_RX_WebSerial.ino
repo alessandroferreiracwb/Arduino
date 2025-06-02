@@ -19,20 +19,44 @@ const char* password = "admin1234";
 #define RXD2 16
 #define TXD2 17
 
-String uartBuffer = "";  // Buffer de dados recebidos
+String uartBuffer = "";
+unsigned long currentBaud = 9600;  // Valor inicial da UART2
 
+// 🔄 Atualiza a taxa de transmissão da Serial2
+void updateBaudRate(unsigned long newBaud) {
+  Serial2.end();  // Encerra a UART atual
+  delay(100);     // Pequeno delay para segurança
+  Serial2.begin(newBaud, SERIAL_8N1, RXD2, TXD2);
+  currentBaud = newBaud;
+  WebSerial.printf("🔁 Taxa da UART2 atualizada para %lu bps\n", newBaud);
+}
+
+// 🔤 Processa comandos recebidos pelo WebSerial
 void recvMsg(uint8_t *data, size_t len) {
   String msg = "";
   for (size_t i = 0; i < len; i++) {
     msg += (char)data[i];
   }
-  WebSerial.println("Recebido do navegador:");
-  WebSerial.println(msg);
+
+  msg.trim();
+  WebSerial.println("📩 Comando recebido: " + msg);
+
+  if (msg.startsWith("baud=")) {
+    String baudStr = msg.substring(5);
+    unsigned long newBaud = baudStr.toInt();
+    if (newBaud > 0) {
+      updateBaudRate(newBaud);
+    } else {
+      WebSerial.println("❌ Valor inválido para baud rate.");
+    }
+  } else {
+    WebSerial.println("❔ Comando desconhecido.");
+  }
 }
 
 void setup() {
   Serial.begin(115200);
-  Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
+  Serial2.begin(currentBaud, SERIAL_8N1, RXD2, TXD2);
 
   WiFi.softAP(ssid, password);
   IPAddress IP = WiFi.softAPIP();
@@ -43,16 +67,15 @@ void setup() {
   WebSerial.onMessage(recvMsg);
   server.begin();
 
-  WebSerial.println("🟢 WebSerial iniciado. Aguardando UART2...");
+  WebSerial.println("🟢 WebSerial iniciado. Envie `baud=xxxxx` para mudar velocidade da UART2.");
 }
 
 void loop() {
-  // Lê UART2 e acumula no buffer até nova linha
   while (Serial2.available()) {
     char c = Serial2.read();
     if (c == '\n') {
-      WebSerial.println(uartBuffer);  // Envia a linha inteira
-      uartBuffer = "";                // Limpa buffer
+      WebSerial.println(uartBuffer);
+      uartBuffer = "";
     } else {
       uartBuffer += c;
     }
