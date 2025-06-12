@@ -4,7 +4,8 @@ CAN 125 → configura a 250 kbps
 CAN 250 → configura a 250 kbps
 CAN 500 → configura a 500 kbps
 CAN 1000 → configura a 1 Mbps
-
+WebSerialLite.h Versão 2.3
+WebSerial.h Versão 2.1.1
 */
 
 #include "driver/twai.h"
