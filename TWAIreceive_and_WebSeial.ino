@@ -1,31 +1,30 @@
 /*
+ * IP de acesso: 192.168.4.1/webserial
 No navegador, envie os comandos:
-CAN 125 → configura a 250 kbps
+CAN 125 → configura a 125 kbps
 CAN 250 → configura a 250 kbps
 CAN 500 → configura a 500 kbps
 CAN 1000 → configura a 1 Mbps
+
+ESPAsyncWebServer 
 WebSerialLite.h Versão 2.3
 WebSerial.h Versão 2.1.1
 */
 
 #include "driver/twai.h"
-
 #include <Arduino.h>
-#if defined(ESP8266)
-  #include <ESP8266WiFi.h>
-  #include <ESPAsyncTCP.h>
-#elif defined(ESP32)
-  #include <WiFi.h>
-  #include <AsyncTCP.h>
-#endif
-#include <ESPAsyncWebServer.h>
-#include <WebSerialLite.h>
-#include <WebSerial.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>           // Versão 1.1.4
+#include <ESPAsyncWebServer.h>  // Versão 3.1 - Instalação only
+#include <WebSerialLite.h>      // Versão 2.3
+//#include <WebSerial.h>        // Removido 
 
 int led=0;
 // Pins used to connect to CAN bus transceiver:
 #define RX_PIN 4
 #define TX_PIN 5
+#define RXD2 16
+#define TXD2 17
 
 AsyncWebServer server(80);
 
@@ -50,8 +49,6 @@ void recvMsg(uint8_t *data, size_t len){
     WebSerial.println("Comando desconhecido.");
   }
 }
-
-
 
 
 // Intervall:
@@ -108,6 +105,11 @@ bool startCAN(int bitrate_kbps) {
 
 
 void setup() {
+  // Inicializa a Serial2 com os pinos definidos
+  Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
+
+  Serial.println("Iniciado. Aguardando dados na Serial2...");
+  
   pinMode(2, OUTPUT);
   // Start Serial:
   Serial.begin(9600);
@@ -117,7 +119,7 @@ void setup() {
     IPAddress IP = WiFi.softAPIP();
     Serial.print("AP IP address: ");
     Serial.println(IP);
-    // WebSerial is accessible at "<IP Address>/webserial" in browser
+    //WebSerial is accessible at "<IP Address>/webserial" in browser
     WebSerial.begin(&server);
     /* Attach Message Callback */
     WebSerial.onMessage(recvMsg);
@@ -126,8 +128,6 @@ void setup() {
   // Initialize configuration structures using macro initializers
   startCAN(250); // CAN padrão inicial: 250 kbps
 
-
- 
 
   // Start TWAI driver
   if (twai_start() == ESP_OK) {
@@ -164,13 +164,18 @@ static void handle_rx_message(twai_message_t& message) {
       output += String(buf);
     }
   }
-
-  WebSerial.println(output);  // Envia tudo de uma vez com \n incluso
+  //WebSerial.println(output);  // Envia tudo de uma vez com \n incluso
   delay(500);
 }
 
 
 void loop() { 
+  // Verifica se há dados disponíveis na Serial2
+  while (Serial2.available()) {
+    char c = Serial2.read();  // Lê o caractere da UART2
+    Serial.print(c);          // Imprime na Serial principal
+  }
+  
    
   if (!driver_installed) {
     // Driver not installed
@@ -205,7 +210,8 @@ void loop() {
     while (twai_receive(&message, 0) == ESP_OK) {
       handle_rx_message(message);
     }
+  } else {
+    WebSerial.println("Sem dados ou Velocidade incompativel"); 
   }
-    
-  
 }
+/*Fim*/
