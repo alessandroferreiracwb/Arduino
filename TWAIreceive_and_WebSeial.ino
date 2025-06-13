@@ -156,16 +156,16 @@ static void handle_rx_message(twai_message_t& message) {
   output += "ID: ";
   output += String(message.identifier, HEX);
   output.toUpperCase();  // Converte para maiúsculas
-  output += " B";
+  output += " B:";
 
   if (!(message.rtr)) {
     for (int i = 0; i < message.data_length_code; i++) {
       char buf[6];
-      sprintf(buf, " : %02X", message.data[i]);
+      sprintf(buf, "  %02X", message.data[i]);
       output += String(buf);
     }
   }
-  //WebSerial.println(output);  // Envia tudo de uma vez com \n incluso
+  WebSerial.println(output);  // Envia tudo de uma vez com \n incluso
   delay(500);
 }
 
