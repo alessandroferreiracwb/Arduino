@@ -6,17 +6,16 @@ CAN 250 → configura a 250 kbps
 CAN 500 → configura a 500 kbps
 CAN 1000 → configura a 1 Mbps
 
-AsyncTCP.h        - Versão 1.1.4 - by dvarrel
-ESPAsyncWebServer - Versão 3.1.0 - by lacamera
+AsyncTCP.h        - Versão 3.4.4 - by ESP32Async 
+ESPAsyncWebServer - Versão 3.7.8 - by ESP32Async
 WebSerialLite.h   - Versão 2.3.0 - by HomeboyC
-
 */
 
 #include "driver/twai.h"
 #include <Arduino.h>
 #include <WiFi.h>
-#include <AsyncTCP.h>           // Versão 1.1.4 - by dvarrel
-#include <ESPAsyncWebServer.h>  // Versão 3.1.0 - by lacamera - Instalação only
+#include <AsyncTCP.h>           // Versão 3.4.4 - by ESP32Async 
+#include <ESPAsyncWebServer.h>  // Versão 3.7.8 - by ESP32Async 
 #include <WebSerialLite.h>      // Versão 2.3.0 - by HomeboyC
 //#include <WebSerial.h>        // Removido 
 
