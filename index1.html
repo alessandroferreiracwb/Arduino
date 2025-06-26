@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Dados em Tempo Real com USR-K7 e WebSocket</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin-top: 40px; }
+        #status { font-size: 1.2em; font-weight: bold; padding: 10px; border-radius: 5px; }
+        .conectado { color: #28a745; background-color: #e9f7eb; }
+        .desconectado { color: #dc3545; background-color: #fce8e6; }
+        #dados-container { margin-top: 20px; border: 1px solid #ccc; padding: 20px; min-width: 300px; min-height: 100px; text-align: center; }
+        #dados-websocket { font-size: 1.5em; color: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Monitor de Dados do USR-K7</h1>
+    <div>
+        <strong>Status da Conexão:</strong>
+        <span id="status" class="desconectado">Desconectado</span>
+    </div>
+
+    <div id="dados-container">
+        <h2>Último Dado Recebido:</h2>
+        <p id="dados-websocket">Aguardando conexão...</p>
+    </div>
+
+    <script>
+        // --- IMPORTANTE: Altere o endereço IP e a porta abaixo! ---
+        // Use o IP do seu USR-K7 e a porta que você configurou no Passo 1.
+        const websocket_address = 'ws://192.168.0.5:6432'; 
+
+        const statusElement = document.getElementById('status');
+        const dadosElement = document.getElementById('dados-websocket');
+
+        console.log(`Tentando conectar a: ${websocket_address}`);
+        const socket = new WebSocket(websocket_address);
+
+        // Função chamada quando a conexão é aberta com sucesso
+        socket.onopen = function(e) {
+            console.log("[open] Conexão estabelecida com sucesso!");
+            statusElement.textContent = "Conectado";
+            statusElement.className = "conectado";
+            dadosElement.textContent = "Conexão bem-sucedida. Aguardando dados...";
+        };
+
+        // Função chamada toda vez que uma mensagem é recebida do módulo
+        socket.onmessage = function(event) {
+            console.log(`[message] Dado recebido do módulo: ${event.data}`);
+            // Atualiza o elemento na página com o dado recebido
+            dadosElement.innerText = event.data; 
+        };
+
+        // Função chamada toda vez que uma mensagem é recebida do módulo
+        socket.onmessage = function(event) {
+            
+            // --- CÓDIGO DE DIAGNÓSTICO ADICIONADO ---
+            console.log("--- NOVO DADO RECEBIDO ---");
+            console.log("Conteúdo (event.data):", event.data);
+            console.log("Tipo do dado (typeof):", typeof event.data);
+            console.log("Tamanho (length):", event.data.length);
+            // -----------------------------------------
+
+            // A linha que atualiza a página continua a mesma
+            dadosElement.innerText = event.data; 
+        };
+
+        // Função chamada quando a conexão é fechada
+        socket.onclose = function(event) {
+            console.log('[close] Conexão fechada.');
+            statusElement.textContent = "Desconectado";
+            statusElement.className = "desconectado";
+            if (event.wasClean) {
+                dadosElement.textContent = `Conexão fechada de forma limpa. Código: ${event.code}.`;
+            } else {
+                // Ex: O módulo foi desligado ou perdeu a conexão de rede
+                dadosElement.textContent = 'A conexão com o módulo foi perdida. Verifique a rede ou o dispositivo.';
+            }
+        };
+
+        // Função chamada em caso de erro na conexão
+        socket.onerror = function(error) {
+            console.error(`[error] Ocorreu um erro na conexão: ${error.message}`);
+            statusElement.textContent = "Erro na Conexão";
+            statusElement.className = "desconectado";
+            dadosElement.textContent = "Não foi possível conectar ao WebSocket. Verifique o endereço IP e se o módulo está na rede.";
+        };
+    </script>
+</body>
+</html>

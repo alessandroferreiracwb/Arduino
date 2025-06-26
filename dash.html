@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Joystick Duplo (0-100)</title>
+    <style>
+        body { font-family: sans-serif; background-color: #333; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; gap: 20px;}
+        #connect-button { font-size: 1.2em; padding: 10px 20px; cursor: pointer; }
+        
+        .dashboard { 
+            display: grid; 
+            grid-template-columns: 1fr 220px 1fr;
+            gap: 50px; 
+            align-items: start;
+        }
+        .axes-container { text-align: center; }
+        .buttons-container { text-align: center; }
+        .axis { width: 300px; margin-bottom: 20px; }
+        .axis label { display: block; margin-bottom: 5px; }
+        .axis-bar { width: 100%; height: 30px; background-color: #555; border-radius: 5px; overflow: hidden; }
+        .axis-progress { height: 100%; background-color: #007bff; width: 50%; transition: width 0.1s linear; }
+        .button-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .button-column h3 { margin-top: 0; }
+        .button-group { display: flex; flex-direction: column; gap: 10px; }
+        .button { width: 50px; height: 50px; border: 2px solid #888; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; transition: all 0.1s; user-select: none; }
+        .button.pressed { background-color: #ffc107; border-color: #fff; color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Dashboard Joystick Duplo</h1>
+    <button id="connect-button">Conectar ao Arduino</button>
+    <div class="dashboard">
+        <div class="axes-container">
+            <h2>Joystick Esquerdo</h2>
+            <div class="axis">
+                <label>Eixo X: <span id="lx-value">0</span></label>
+                <div class="axis-bar"><div id="lx-progress" class="axis-progress"></div></div>
+            </div>
+            <div class="axis">
+                <label>Eixo Y: <span id="ly-value">0</span></label>
+                <div class="axis-bar"><div id="ly-progress" class="axis-progress"></div></div>
+            </div>
+        </div>
+
+        <div class="buttons-container">
+             <h2>Botões</h2>
+             <div class="button-grid">
+                <div class="button-column">
+                    <h3>Esquerdo</h3>
+                    <div class="button-group">
+                        <div id="btn-0" class="button">0</div> <div id="btn-1" class="button">1</div> <div id="btn-2" class="button">2</div>
+                        <div id="btn-3" class="button">3</div> <div id="btn-4" class="button">4</div> <div id="btn-5" class="button">5</div>
+                    </div>
+                </div>
+                <div class="button-column">
+                    <h3>Direito</h3>
+                    <div class="button-group">
+                        <div id="btn-6" class="button">6</div> <div id="btn-7" class="button">7</div> <div id="btn-8" class="button">8</div>
+                        <div id="btn-9" class="button">9</div> <div id="btn-10" class="button">10</div> <div id="btn-11" class="button">11</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="axes-container">
+            <h2>Joystick Direito</h2>
+            <div class="axis">
+                <label>Eixo X: <span id="rx-value">0</span></label>
+                <div class="axis-bar"><div id="rx-progress" class="axis-progress"></div></div>
+            </div>
+            <div class="axis">
+                <label>Eixo Y: <span id="ry-value">0</span></label>
+                <div class="axis-bar"><div id="ry-progress" class="axis-progress"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function atualizarUI(data) {
+            // --- JAVASCRIPT ATUALIZADO PARA LER 6 VALORES ---
+            const [lx, ly, buttons1, buttons2, rx, ry] = data.split(',').map(Number);
+            
+            // Valida se todos os dados são números
+            if([lx, ly, buttons1, buttons2, rx, ry].some(isNaN)) return;
+            
+            // =====================================================================
+            // === ALTERAÇÃO: Mapeia os valores de 0-1023 para uma escala de 0-100 ===
+            // =====================================================================
+            const lx_mapped = Math.round((lx / 255) * 100);
+            const ly_mapped = Math.round((ly / 255) * 100);
+            const rx_mapped = Math.round((rx / 255) * 100);
+            const ry_mapped = Math.round((ry / 255) * 100);
+
+            // Atualiza Joystick Esquerdo usando os valores mapeados
+            document.getElementById('lx-value').textContent = lx_mapped;
+            document.getElementById('lx-progress').style.width = (lx / 1023) * 100 + '%'; // A barra já usa porcentagem, então a lógica é a mesma
+            document.getElementById('ly-value').textContent = ly_mapped;
+            document.getElementById('ly-progress').style.width = (ly / 1023) * 100 + '%';
+
+            // Atualiza Joystick Direito usando os valores mapeados
+            document.getElementById('rx-value').textContent = rx_mapped;
+            document.getElementById('rx-progress').style.width = (rx / 1023) * 100 + '%';
+            document.getElementById('ry-value').textContent = ry_mapped;
+            document.getElementById('ry-progress').style.width = (ry / 1023) * 100 + '%';
+
+            // Atualiza Botões (lógica sem alterações)
+            for (let i = 0; i < 12; i++) {
+                const btnElement = document.getElementById(`btn-${i}`);
+                if (!btnElement) continue; // Adiciona verificação para segurança
+                let isPressed = (i < 6) ? (buttons1 & (1 << i)) > 0 : (buttons2 & (1 << (i - 6))) > 0;
+                btnElement.classList.toggle('pressed', isPressed);
+            }
+        }
+        
+        // O resto do script de conexão continua o mesmo
+        const connectButton = document.getElementById('connect-button');
+        let port;
+        class LineBreakTransformer { constructor() { this.container = ''; } transform(chunk, controller) { this.container += chunk; const lines = this.container.split('\n'); this.container = lines.pop(); lines.forEach(line => controller.enqueue(line)); } flush(controller) { controller.enqueue(this.container); } }
+        connectButton.addEventListener('click', async () => { try { port = await navigator.serial.requestPort(); await port.open({ baudRate: 115200 }); connectButton.textContent = 'Conectado!'; connectButton.disabled = true; readLoop(); } catch (err) { console.error('Houve um erro ao conectar: ', err); } });
+        async function readLoop() { if (!port || !port.readable) return; const reader = port.readable.pipeThrough(new TextDecoderStream()).pipeThrough(new TransformStream(new LineBreakTransformer())).getReader(); try { while (true) { const { value, done } = await reader.read(); if (done) break; if (value) { atualizarUI(value); } } } catch (error) { console.error("Erro durante a leitura:", error); } finally { reader.releaseLock(); } }
+    </script>
+</body>
+</html>

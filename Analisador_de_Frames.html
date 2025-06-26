@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Analisador de Frames com Destaque v3.0</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin-top: 20px; background-color: #f0f2f5; }
+        h1 { color: #333; margin-bottom: 10px;}
+        
+        #settings-area { background-color: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #ddd; }
+        .settings-row { display: flex; align-items: center; gap: 10px; }
+        .settings-row label { font-weight: bold; min-width: 190px; }
+        .settings-row input { padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; }
+        #ip-input { width: 200px; }
+        #frame-size-input { width: 60px; }
+        #connect-btn { padding: 8px 15px; border: none; background-color: #007bff; color: white; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        #connect-btn:hover { background-color: #0056b3; }
+
+        #status-box { display: flex; align-items: center; gap: 8px; font-size: 1.2em; }
+        #status-indicator { width: 15px; height: 15px; border-radius: 50%; }
+        .conectado { background-color: #28a745; }
+        .desconectado { background-color: #dc3545; }
+        .conectando { background-color: #ffc107; }
+        
+        #dados-container { margin-top: 20px; border: 1px solid #ccc; padding: 10px 20px; width: 90%; max-width: 900px; height: 500px; overflow-y: auto; text-align: left; background-color: #1e1e1e; color: #d4d4d4; border-radius: 8px; }
+        .dado-item { border-bottom: 1px solid #444; padding: 6px 4px; font-size: 1em; font-family: 'Courier New', Courier, monospace; white-space: pre; word-break: break-all; }
+        
+        /* --- NOVA CLASSE CSS PARA OS BYTES MODIFICADOS --- */
+        .byte-modificado {
+            color: #ffc107; /* Amarelo/Dourado para destaque */
+            font-weight: bold;
+            background-color: #444029; /* Fundo sutil para o destaque */
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Analisador de Frames com Destaque</h1>
+    <div id="settings-area">
+        <div class="settings-row">
+            <label for="ip-input">Endereço do Módulo (IP:Porta):</label>
+            <input type="text" id="ip-input" value="192.168.0.6:6432">
+            <button id="connect-btn">Conectar / Reconectar</button>
+        </div>
+        <div class="settings-row">
+            <label for="frame-size-input">Tamanho do Frame (bytes):</label>
+            <input type="number" id="frame-size-input" value="24" min="1">
+        </div>
+    </div>
+    <div id="status-box">
+        <strong>Status:</strong>
+        <div id="status-indicator" class="desconectado"></div>
+        <span id="status-text">Pronto</span>
+    </div>
+    <div id="dados-container"></div>
+    <script>
+        const START_BYTE = 0xF1;
+        const MAX_ITENS_LISTA = 100;
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        const dadosContainer = document.getElementById('dados-container');
+        const frameSizeInput = document.getElementById('frame-size-input');
+        const ipInput = document.getElementById('ip-input');
+        const connectBtn = document.getElementById('connect-btn');
+        let socket;
+        let byteBuffer = [];
+        let dadosExibidos = [];
+        let frameSize = parseInt(frameSizeInput.value, 10);
+        let frameAnterior = null; // <<< NOVA VARIÁVEL para guardar o último frame
+
+        // ======================================================================
+        // === FUNÇÃO DE EXIBIÇÃO REESCRITA PARA COMPARAR E DESTACAR OS BYTES ===
+        // ======================================================================
+        function adicionarLinhaComDestaque(novoFrame) {
+            // Cria um container para a nova linha de dados
+            const linhaElement = document.createElement('div');
+            linhaElement.className = 'dado-item';
+
+            // Percorre cada byte do novo frame para criar os <span>
+            for (let i = 0; i < novoFrame.length; i++) {
+                const byteAtual = novoFrame[i];
+                const byteHex = byteAtual.toString(16).padStart(2, '0').toUpperCase();
+                
+                const span = document.createElement('span');
+                span.textContent = byteHex + ' '; // Adiciona o espaço após o byte
+
+                // Compara com o byte correspondente do frame anterior
+                // A verificação 'frameAnterior' garante que isso não aconteça no primeiro frame
+                if (frameAnterior && byteAtual !== frameAnterior[i]) {
+                    span.className = 'byte-modificado'; // Aplica a classe de destaque
+                }
+                
+                linhaElement.appendChild(span);
+            }
+
+            // Adiciona a linha construída no topo da lista
+            dadosExibidos.unshift(linhaElement.outerHTML);
+            if (dadosExibidos.length > MAX_ITENS_LISTA) {
+                dadosExibidos.pop();
+            }
+            dadosContainer.innerHTML = dadosExibidos.join('');
+            
+            // IMPORTANTE: Atualiza o frame anterior para a próxima comparação
+            frameAnterior = novoFrame;
+        }
+        
+        function processarBuffer() {
+            while (true) {
+                const frameStartIndex = byteBuffer.indexOf(START_BYTE);
+                if (frameStartIndex === -1) break;
+                if (frameStartIndex > 0) byteBuffer.splice(0, frameStartIndex);
+                if (byteBuffer.length < frameSize) break;
+                const frameCompleto = byteBuffer.splice(0, frameSize);
+                
+                // Chama a nova função de exibição com destaque
+                adicionarLinhaComDestaque(frameCompleto);
+            }
+        }
+
+        function iniciarConexao() {
+            if (socket && socket.readyState !== WebSocket.CLOSED) socket.close();
+            let address = ipInput.value.startsWith('ws') ? ipInput.value : 'ws://' + ipInput.value;
+            statusIndicator.className = 'conectando';
+            statusText.textContent = "Conectando...";
+            socket = new WebSocket(address);
+            socket.binaryType = 'arraybuffer';
+            socket.onopen = function(e) {
+                statusIndicator.className = 'conectado';
+                statusText.textContent = "Conectado";
+                frameAnterior = null; // Reseta o frame anterior a cada nova conexão
+                dadosContainer.innerHTML = `<div class="dado-item">Conexão estabelecida. Aguardando frames...</div>`;
+            };
+            socket.onmessage = function(event) {
+                byteBuffer.push(...new Uint8Array(event.data));
+                processarBuffer();
+            };
+            socket.onclose = function(event) {
+                statusIndicator.className = 'desconectado';
+                statusText.textContent = "Desconectado";
+            };
+            socket.onerror = function(error) {
+                statusIndicator.className = 'desconectado';
+                statusText.textContent = "Erro na Conexão";
+            };
+        }
+
+        connectBtn.onclick = iniciarConexao;
+        frameSizeInput.onchange = function() {
+            const newSize = parseInt(frameSizeInput.value, 10);
+            if (!isNaN(newSize) && newSize > 0) {
+                frameSize = newSize;
+                byteBuffer = [];
+                console.log(`Tamanho do frame alterado para: ${frameSize}`);
+            } else {
+                frameSizeInput.value = frameSize;
+            }
+        };
+    </script>
+</body>
+</html>
