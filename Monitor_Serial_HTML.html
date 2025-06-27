@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Leitor Serial com Destaque</title>
+    <style>
+        body {
+            font-family: monospace; /* Fonte monoespaçada ajuda a alinhar os caracteres */
+            padding: 1em;
+        }
+        #frame {
+            border: 1px solid #ccc;
+            height: 500px;
+            overflow-y: scroll;
+            padding: 10px;
+            background-color: #f9f9f9;
+            margin-top: 1em;
+        }
+        #data-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        #data-list li {
+            padding: 4px 8px;
+            border-bottom: 1px dotted #eee;
+            cursor: pointer;
+            white-space: pre; /* Preserva os espaços em branco para alinhamento */
+        }
+        #data-list li:focus {
+            background-color: #e0e7ff;
+            outline: 1px solid #99b0ff;
+        }
+        /* --- NOVO ESTILO PARA O DESTAQUE --- */
+        .highlight {
+            background-color: #ffdd77; /* Um amarelo para o destaque */
+            font-weight: bold;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Monitor Serial com Destaque de Mudanças</h1>
+    <p>Compara a linha atual com a anterior e destaca os bytes modificados.</p>
+
+    <button id="connectButton">Conectar ao Arduino</button>
+    <button id="disconnectButton" disabled>Desconectar</button>
+
+    <div id="frame">
+        <ul id="data-list"></ul>
+    </div>
+
+    <script>
+        const connectButton = document.getElementById('connectButton');
+        const disconnectButton = document.getElementById('disconnectButton');
+        const dataList = document.getElementById('data-list');
+        const frame = document.getElementById('frame');
+
+        let port;
+        let reader;
+        let lineBuffer = '';
+        let lastMessage = ''; // <-- NOVO: Armazena a última mensagem completa
+
+        connectButton.addEventListener('click', async () => {
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 9600 });
+
+                connectButton.disabled = true;
+                disconnectButton.disabled = false;
+                
+                lastMessage = ''; // Reseta o histórico ao conectar
+                addListItem('Conectado. Aguardando dados...', false);
+
+                readLoop();
+
+            } catch (error) {
+                addListItem(`--- ERRO: ${error.message} ---`, false);
+            }
+        });
+
+        disconnectButton.addEventListener('click', async () => {
+            if (reader) {
+                await reader.cancel();
+            }
+            if (port) {
+                await port.close();
+                port = null;
+                reader = null;
+
+                connectButton.disabled = false;
+                disconnectButton.disabled = true;
+                addListItem('--- Desconectado ---', false);
+            }
+        });
+
+        async function readLoop() {
+            reader = port.readable.getReader();
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        break;
+                    }
+                    const text = new TextDecoder().decode(value);
+                    lineBuffer += text;
+
+                    let lines = lineBuffer.split('\n');
+                    while (lines.length > 1) {
+                        const line = lines.shift().trim();
+                        if (line) {
+                            addListItem(line, true); // Passa 'true' para comparar
+                        }
+                    }
+                    lineBuffer = lines[0];
+                }
+            } catch (error) {
+                addListItem(`--- ERRO DE LEITURA: ${error.message} ---`, false);
+            } finally {
+                reader.releaseLock();
+            }
+        }
+
+        // --- FUNÇÃO addListItem MODIFICADA ---
+        function addListItem(text, shouldCompare) {
+            const li = document.createElement('li');
+            
+            if (shouldCompare) {
+                // Usa innerHTML para renderizar as tags <span> do destaque
+                li.innerHTML = createDiffHtml(lastMessage, text);
+                lastMessage = text; // Atualiza a última mensagem
+            } else {
+                li.textContent = text;
+            }
+
+            li.contentEditable = true;
+            dataList.appendChild(li);
+            frame.scrollTop = frame.scrollHeight;
+        }
+
+        // --- NOVA FUNÇÃO PARA COMPARAR E CRIAR O HTML COM DESTAQUE ---
+        function createDiffHtml(oldStr, newStr) {
+            let resultHtml = '';
+            const maxLength = Math.max(oldStr.length, newStr.length);
+
+            for (let i = 0; i < maxLength; i++) {
+                const oldChar = oldStr[i];
+                const newChar = newStr[i];
+
+                if (oldChar !== newChar) {
+                    // Se o caractere for diferente (ou novo), destaca
+                    resultHtml += `<span class="highlight">${newChar || ''}</span>`;
+                } else {
+                    // Se for igual, apenas adiciona o caractere
+                    resultHtml += newChar;
+                }
+            }
+            return resultHtml;
+        }
+    </script>
+
+</body>
+</html>
