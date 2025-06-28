@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Joysticks com WebHID</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #121212; color: #e0e0e0; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 20px; min-height: 100vh; margin: 0; box-sizing: border-box; }
+        .connection-area { text-align: center; margin-bottom: 30px; }
+        #connectButton { font-size: 1.2em; padding: 12px 25px; border-radius: 8px; border: none; background-color: #bb86fc; color: #121212; cursor: pointer; transition: background-color 0.3s; }
+        #connectButton:hover { background-color: #9e6ae0; }
+        #statusMessage { margin-top: 15px; color: #aaa; height: auto; min-height: 20px; background-color: #2a2a2a; border-radius: 5px; padding: 10px; border: 1px solid #444; }
+        .joysticks-wrapper { display: flex; justify-content: center; align-items: flex-start; gap: 40px; flex-wrap: wrap; width: 100%; }
+        .joystick-container { background-color: #1e1e1e; border-radius: 12px; padding: 25px; min-width: 380px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #333; }
+        h2 { text-align: center; margin-top: 0; color: #bb86fc; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .axes-grid, .buttons-grid { display: grid; gap: 15px; }
+        .axes-grid { grid-template-columns: 1fr 1fr; margin-bottom: 25px; }
+        .axis { display: flex; flex-direction: column; }
+        .axis-label { font-size: 0.9em; color: #aaa; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        /* --- NOVO ESTILO PARA O VALOR DO EIXO --- */
+        .axis-value { font-weight: bold; color: #fff; min-width: 45px; text-align: right; }
+        .progress-bar-bg { width: 100%; background-color: #333; border-radius: 5px; overflow: hidden; height: 20px; position: relative; }
+        .progress-bar {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            height: 100%; 
+            background: linear-gradient(90deg, #bb86fc, #3700b3); 
+            border-radius: 5px; 
+        }
+        .progress-bar-center { height: 100%; width: 2px; background-color: #121212; position: absolute; left: 50%; top: 0; transform: translateX(-50%); }
+        .buttons-grid { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); }
+        .button { width: 50px; height: 50px; border-radius: 50%; background-color: #444; display: flex; justify-content: center; align-items: center; font-weight: bold; color: #fff; transition: background-color 0.1s ease, transform 0.1s ease; user-select: none; }
+        .button.pressed { background-color: #03dac6; transform: scale(1.1); box-shadow: 0 0 15px #03dac6; }
+    </style>
+</head>
+<body>
+
+    <div class="connection-area">
+        
+        <button id="connectButton">Conectar aos Joysticks</button>
+        <p id="statusMessage">Por favor, clique para conectar.</p>
+    </div>
+
+    <div class="joysticks-wrapper">
+        <div class="joystick-container">
+            <h2>Joystick 1 (Principal)</h2>
+            <div class="axes-grid" id="j1-axes"></div>
+            <div class="buttons-grid" id="j1-buttons"></div>
+        </div>
+        <div class="joystick-container">
+            <h2>Joystick 2 (Teclado)</h2>
+            <div class="buttons-grid" id="j2-buttons"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const connectButton = document.getElementById('connectButton');
+            const statusMessage = document.getElementById('statusMessage');
+            
+            const axisStates = Array(10).fill(0).map(() => ({ current: 0, target: 0, lastSign: 1 }));
+
+            const j1AxesContainer = document.getElementById('j1-axes');
+            const j1ButtonsContainer = document.getElementById('j1-buttons');
+            const j2ButtonsContainer = document.getElementById('j2-buttons');
+
+            // --- MUDANÇA NO HTML GERADO ---
+            // Adiciona um <span> para mostrar o valor numérico do eixo.
+            for (let i = 0; i < 10; i++) { 
+                j1AxesContainer.innerHTML += `
+                    <div class="axis">
+                        <span class="axis-label">
+                            <span>Eixo ${i + 1}</span>
+                            <span class="axis-value" id="j1-axis-value-${i}">0</span>
+                        </span>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-center"></div>
+                            <div class="progress-bar" id="j1-axis-${i}"></div>
+                        </div>
+                    </div>`;
+            }
+            for (let i = 0; i < 16; i++) { j1ButtonsContainer.innerHTML += `<div class="button" id="j1-button-${i}">${i + 1}</div>`; }
+            for (let i = 0; i < 24; i++) { j2ButtonsContainer.innerHTML += `<div class="button" id="j2-button-${i}">${i + 1}</div>`; }
+
+            connectButton.addEventListener('click', async () => {
+                if (!("hid" in navigator)) {
+                    statusMessage.textContent = "Erro: O seu navegador não suporta a WebHID API.";
+                    return;
+                }
+                try {
+                    statusMessage.textContent = "A aguardar seleção de dispositivo...";
+                    const devices = await navigator.hid.requestDevice({ filters: [{ vendorId: 0x2341 }] });
+                    if (devices.length === 0) { statusMessage.textContent = "Nenhum dispositivo selecionado."; return; }
+                    
+                    statusMessage.textContent = "Dispositivos selecionados. A conectar...";
+                    connectButton.style.display = 'none';
+
+                    for (const device of devices) {
+                        await device.open();
+                        device.addEventListener('inputreport', event => {
+                            handleInputReport(event.reportId, event.data);
+                        });
+                    }
+                    
+                    statusMessage.textContent = "Dispositivos conectados e a ouvir!";
+                } catch (error) {
+                    console.error('Erro na WebHID:', error);
+                    if (error.name === 'SecurityError') {
+                        statusMessage.innerHTML = `<b>Erro de Permissão de Segurança:</b><br>O acesso aos dispositivos HID foi bloqueado.<br><br><b>Solução:</b> Guarde este código como um ficheiro .html e abra-o diretamente no seu navegador.`;
+                    } else {
+                        statusMessage.textContent = `Erro ao conectar: ${error.message}`;
+                    }
+                }
+            });
+
+            function handleInputReport(reportId, dataView) {
+                if (reportId === 3) { updateJoystick1(dataView); } 
+                else if (reportId === 4) { updateJoystick2(dataView); }
+            }
+
+            function updateJoystick1(data) {
+                const buttonsWord = data.getUint16(0, true);
+                for(let i = 0; i < 16; i++) {
+                    const button = document.getElementById(`j1-button-${i}`);
+                    if(button) button.classList.toggle('pressed', (buttonsWord >> i) & 1);
+                }
+
+                for (let i = 0; i < 10; i++) {
+                    const newTarget = data.getInt16(2 + (i * 2), true);
+                    const state = axisStates[i];
+                    const newSign = Math.sign(newTarget) || 1; 
+                    if (newSign !== state.lastSign) {
+                        state.current = 0;
+                    }
+                    state.target = newTarget;
+                    state.lastSign = newSign;
+                }
+            }
+            
+            function updateJoystick2(data) {
+                const buttonsByte1 = data.getUint8(0), buttonsByte2 = data.getUint8(1), buttonsByte3 = data.getUint8(2);
+                for(let i=0; i<8; i++) { document.getElementById(`j2-button-${i}`).classList.toggle('pressed', ((buttonsByte1>>i)&1)); }
+                for(let i=0; i<8; i++) { document.getElementById(`j2-button-${i+8}`).classList.toggle('pressed', ((buttonsByte2>>i)&1)); }
+                for(let i=0; i < 8; i++) { document.getElementById(`j2-button-${i+16}`).classList.toggle('pressed', ((buttonsByte3>>i)&1)); }
+            }
+
+            function animationLoop() {
+                for (let i = 0; i < axisStates.length; i++) {
+                    const state = axisStates[i];
+                    state.current += (state.target - state.current) * 0.15;
+
+                    if (Math.abs(state.target - state.current) < 1) {
+                        state.current = state.target;
+                    }
+                    
+                    const bar = document.getElementById(`j1-axis-${i}`);
+                    const valueDisplay = document.getElementById(`j1-axis-value-${i}`); // Pega o elemento do valor
+                    
+                    if (bar) {
+                        const scale = 32767; 
+                        if (state.current >= 0) {
+                            bar.style.left = '50%';
+                            bar.style.right = 'auto';
+                            bar.style.width = `${(state.current / scale) * 50}%`;
+                        } else {
+                            bar.style.right = '50%';
+                            bar.style.left = 'auto';
+                            bar.style.width = `${(Math.abs(state.current) / scale) * 50}%`;
+                        }
+                    }
+
+                    // --- MUDANÇA PARA ATUALIZAR O TEXTO ---
+                    // Atualiza o conteúdo do <span> com o valor atual arredondado.
+                    if (valueDisplay) {
+                        valueDisplay.textContent = Math.round(state.current);
+                    }
+                }
+                requestAnimationFrame(animationLoop);
+            }
+            
+            animationLoop();
+        });
+    </script>
+</body>
+</html>
