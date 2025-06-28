@@ -36,7 +36,7 @@ Joystick_ joystick2(
 
 
 // --- Função de Cálculo CRC-16 ---
-// Exatamente a mesma função do Transmissor. É usada para calcular o CRC dos dados recebidos
+// É usada para calcular o CRC dos dados recebidos
 // e comparar com o CRC que veio no frame, garantindo a integridade dos dados.
 uint16_t crc16(const byte *data, int len) {
   uint16_t crc = 0x0000;
@@ -129,7 +129,8 @@ void loop() {
     // Envia os valores finais para os eixos do joystick 1.
     joystick1.setXAxis(finalAxisValues[0]); joystick1.setYAxis(finalAxisValues[1]); joystick1.setZAxis(finalAxisValues[2]);
     joystick1.setRxAxis(finalAxisValues[3]); joystick1.setRyAxis(finalAxisValues[4]); joystick1.setRzAxis(finalAxisValues[5]);
-    joystick1.setRudder(finalAxisValues[6]); joystick1.setThrottle(finalAxisValues[7]); joystick1.setAccelerator(finalAxisValues[8]); joystick1.setBrake(finalAxisValues[9]);
+    joystick1.setRudder(finalAxisValues[6]); joystick1.setThrottle(finalAxisValues[7]); joystick1.setAccelerator(finalAxisValues[8]); 
+    joystick1.setBrake(finalAxisValues[9]);
 
     // Atualizar os 16 botões do Joystick 1 (lendo os bytes 13 e 14).
     for (int i = 0; i < 8; i++) { if (bitRead(payload[13], i) == 1) { joystick1.pressButton(i); } else { joystick1.releaseButton(i); } }
