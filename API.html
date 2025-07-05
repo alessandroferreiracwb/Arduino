@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leitura de Múltiplos Joysticks</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start; /* Alinha ao topo para caber mais conteúdo */
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        #status {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            color: #555;
+            text-align: center;
+        }
+        .gamepad-container {
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 700px;
+            text-align: left;
+            margin-bottom: 30px; /* Espaço entre os containers de joystick */
+            border: 1px solid #ddd;
+        }
+        .gamepad-container h2 {
+            color: #007bff;
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .gamepad-container p {
+            margin-bottom: 8px;
+        }
+        .data-section {
+            margin-top: 20px;
+            border-top: 1px dashed #eee;
+            padding-top: 15px;
+        }
+        .data-section h3 {
+            color: #4CAF50;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 150px; /* Menor altura para caber dois */
+            overflow-y: auto;
+            font-size: 0.9em;
+        }
+        strong {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Leitura de Dados de Múltiplos Joysticks</h1>
+    <p id="status">Conecte seus joysticks e interaja com eles...</p>
+
+    <div id="gamepad-info-0" class="gamepad-container">
+        <h2>Joystick 1: <span id="gamepadTitle-0">Nenhum Conectado</span></h2>
+        <p><strong>ID do Gamepad:</strong> <span id="gamepadId-0">Nenhum</span></p>
+        <p><strong>Número de Eixos:</strong> <span id="numAxes-0">0</span></p>
+        <p><strong>Número de Botões:</strong> <span id="numButtons-0">0</span></p>
+        <div class="data-section">
+            <h3>Valores dos Eixos (Analógicos):</h3>
+            <pre id="axesData-0">Aguardando dados...</pre>
+        </div>
+        <div class="data-section">
+            <h3>Estado dos Botões:</h3>
+            <pre id="buttonsData-0">Aguardando dados...</pre>
+        </div>
+    </div>
+
+    <div id="gamepad-info-1" class="gamepad-container">
+        <h2>Joystick 2: <span id="gamepadTitle-1">Nenhum Conectado</span></h2>
+        <p><strong>ID do Gamepad:</strong> <span id="gamepadId-1">Nenhum</span></p>
+        <p><strong>Número de Eixos:</strong> <span id="numAxes-1">0</span></p>
+        <p><strong>Número de Botões:</strong> <span id="numButtons-1">0</span></p>
+        <div class="data-section">
+            <h3>Valores dos Eixos (Analógicos):</h3>
+            <pre id="axesData-1">Aguardando dados...</pre>
+        </div>
+        <div class="data-section">
+            <h3>Estado dos Botões:</h3>
+            <pre id="buttonsData-1">Aguardando dados...</pre>
+        </div>
+    </div>
+
+    <script>
+        // Objeto para armazenar as referências dos gamepads conectados
+        const connectedGamepads = {};
+        let animationFrameId;
+
+        // Função para atualizar a UI de um gamepad específico
+        function updateGamepadUI(gamepad) {
+            const index = gamepad.index;
+            const container = document.getElementById(`gamepad-info-${index}`);
+
+            // Se o container para este índice não existir, podemos ignorar ou criar dinamicamente
+            if (!container) {
+                console.warn(`Container para gamepad ${index} não encontrado. Crie mais divs de joystick no HTML.`);
+                return;
+            }
+
+            document.getElementById(`gamepadTitle-${index}`).textContent = gamepad.id;
+            document.getElementById(`gamepadId-${index}`).textContent = gamepad.id;
+            document.getElementById(`numAxes-${index}`).textContent = gamepad.axes.length;
+            document.getElementById(`numButtons-${index}`).textContent = gamepad.buttons.length;
+
+            // Exibir dados dos eixos (analógicos)
+            const axesOutput = gamepad.axes.map((axis, i) => `Eixo ${i}: ${axis.toFixed(4)}`).join('\n');
+            document.getElementById(`axesData-${index}`).textContent = axesOutput;
+
+            // Exibir dados dos botões
+            const buttonsOutput = gamepad.buttons.map((button, i) =>
+                `Botão ${i}: Pressionado: ${button.pressed ? 'SIM' : 'NÃO'}, Valor: ${button.value.toFixed(2)}`
+            ).join('\n');
+            document.getElementById(`buttonsData-${index}`).textContent = buttonsOutput;
+        }
+
+        // Função para limpar a UI de um gamepad desconectado
+        function clearGamepadUI(index) {
+            const container = document.getElementById(`gamepad-info-${index}`);
+            if (!container) return;
+
+            document.getElementById(`gamepadTitle-${index}`).textContent = "Nenhum Conectado";
+            document.getElementById(`gamepadId-${index}`).textContent = "Nenhum";
+            document.getElementById(`numAxes-${index}`).textContent = "0";
+            document.getElementById(`numButtons-${index}`).textContent = "0";
+            document.getElementById(`axesData-${index}`).textContent = "Aguardando dados...";
+            document.getElementById(`buttonsData-${index}`).textContent = "Aguardando dados...";
+        }
+
+        // Evento quando um gamepad é conectado
+        window.addEventListener("gamepadconnected", (event) => {
+            const gamepad = event.gamepad;
+            connectedGamepads[gamepad.index] = gamepad; // Armazena o gamepad pelo seu índice
+            document.getElementById("status").textContent = `Joystick conectado! ID: ${gamepad.id} (Índice: ${gamepad.index})`;
+            console.log("Gamepad conectado:", gamepad);
+            startGamepadPolling(); // Inicia o polling se ainda não estiver ativo
+        });
+
+        // Evento quando um gamepad é desconectado
+        window.addEventListener("gamepaddisconnected", (event) => {
+            const gamepad = event.gamepad;
+            delete connectedGamepads[gamepad.index]; // Remove o gamepad do nosso controle
+            document.getElementById("status").textContent = `Joystick desconectado! ID: ${gamepad.id} (Índice: ${gamepad.index}). Total: ${Object.keys(connectedGamepads).length} conectados.`;
+            console.log("Joystick desconectado:", gamepad);
+            clearGamepadUI(gamepad.index); // Limpa a UI para o gamepad desconectado
+
+            // Se não houver mais gamepads, para o polling
+            if (Object.keys(connectedGamepads).length === 0) {
+                stopGamepadPolling();
+                document.getElementById("status").textContent = "Nenhum joystick conectado. Conecte um novo.";
+            }
+        });
+
+        // Função principal para iniciar a leitura contínua dos dados de TODOS os gamepads
+        function startGamepadPolling() {
+            // Se já estiver rodando, não inicia novamente
+            if (animationFrameId) return;
+
+            function pollGamepads() {
+                // `navigator.getGamepads()` é crucial para obter o estado mais atualizado de TODOS os gamepads
+                const currentAllGamepads = navigator.getGamepads();
+
+                for (let i = 0; i < currentAllGamepads.length; i++) {
+                    const gamepad = currentAllGamepads[i];
+                    if (gamepad) { // Verifica se há um gamepad neste slot
+                        // Atualiza o objeto gamepad com os dados mais recentes no nosso controle
+                        connectedGamepads[gamepad.index] = gamepad;
+                        updateGamepadUI(gamepad); // Atualiza a UI para este gamepad
+                    } else if (connectedGamepads[i]) {
+                        // Se não há gamepad neste slot mas tínhamos um registrado, significa que foi desconectado
+                        // (o evento gamepaddisconnected geralmente lida com isso, mas é uma boa redundância)
+                        delete connectedGamepads[i];
+                        clearGamepadUI(i);
+                    }
+                }
+                animationFrameId = requestAnimationFrame(pollGamepads); // Solicita a próxima chamada
+            }
+            animationFrameId = requestAnimationFrame(pollGamepads); // Inicia o loop de polling
+        }
+
+        // Função para parar a leitura contínua
+        function stopGamepadPolling() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId); // Cancela o loop de animação
+                animationFrameId = null; // Reseta a ID para permitir um novo início
+            }
+        }
+
+        // Verifica se já há gamepads conectados ao carregar a página
+        // E tenta conectar a todos os gamepads encontrados
+        const initialGamepads = navigator.getGamepads();
+        for (let i = 0; i < initialGamepads.length; i++) {
+            const gamepad = initialGamepads[i];
+            if (gamepad) {
+                connectedGamepads[gamepad.index] = gamepad;
+                // Assegura que o HTML para o índice exista (precisamos de divs para 0 e 1, no mínimo)
+                if (document.getElementById(`gamepad-info-${gamepad.index}`)) {
+                    updateGamepadUI(gamepad);
+                } else {
+                    console.warn(`Nenhum container HTML encontrado para o gamepad de índice ${gamepad.index}. Considere adicionar mais.`);
+                }
+            }
+        }
+
+        if (Object.keys(connectedGamepads).length > 0) {
+            document.getElementById("status").textContent = `Joysticks já conectados: ${Object.keys(connectedGamepads).length}.`;
+            startGamepadPolling();
+        } else {
+            document.getElementById("status").textContent = "Nenhum joystick conectado. Conecte um ou mais.";
+        }
+    </script>
+</body>
+</html>
