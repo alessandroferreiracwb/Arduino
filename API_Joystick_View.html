@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Joysticks com Gamepad API</title>
+    <style>
+        /* Variáveis CSS para um tema mais fácil de gerenciar */
+        :root {
+            --background-color: #121212;
+            --surface-color: #1e1e1e;
+            --card-background: #2a2a2a;
+            --text-color: #e0e0e0;
+            --secondary-text-color: #aaa;
+            --primary-color: #bb86fc; /* Cor principal de destaque */
+            --primary-variant-color: #9e6ae0; /* Variação da cor principal para hover */
+            --accent-color: #03dac6; /* Cor de destaque para botões pressionados */
+            --border-color: #333;
+            --progress-bar-start: #bb86fc;
+            --progress-bar-end: #3700b3;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        .connection-area {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        /* Oculta o botão de conexão e a mensagem de status */
+        #connectButton, #statusMessage {
+            display: none; 
+        }
+
+        .joysticks-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 40px;
+            flex-wrap: wrap;
+            width: 100%;
+            max-width: 1200px; /* Limita a largura máxima para melhor apresentação */
+        }
+
+        .joystick-container {
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            padding: 25px;
+            min-width: 380px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--border-color);
+            flex: 1; /* Permite que os containers cresçam */
+            max-width: 45%; /* Limita a largura em telas maiores */
+            box-sizing: border-box; /* Inclui padding e border no cálculo da largura */
+        }
+
+        h2 {
+            text-align: center;
+            margin-top: 0;
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 25px;
+        }
+
+        .axes-grid, .buttons-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .axes-grid {
+            grid-template-columns: 1fr 1fr;
+            margin-bottom: 25px;
+        }
+
+        .axis {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .axis-label {
+            font-size: 0.9em;
+            color: var(--secondary-text-color);
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .axis-value {
+            font-weight: bold;
+            color: var(--text-color);
+            min-width: 45px;
+            text-align: right;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            background-color: var(--border-color);
+            border-radius: 5px;
+            overflow: hidden;
+            height: 20px;
+            position: relative;
+        }
+
+        .progress-bar {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            height: 100%;
+            background: linear-gradient(90deg, var(--progress-bar-start), var(--progress-bar-end));
+            border-radius: 5px;
+            transition: width 0.05s ease-out, left 0.05s ease-out, right 0.05s ease-out; /* Transição mais suave */
+        }
+
+        .progress-bar-center {
+            height: 100%;
+            width: 2px;
+            background-color: var(--background-color);
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            z-index: 1; /* Garante que a linha central esteja acima da barra */
+        }
+
+        .buttons-grid {
+            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+            justify-items: center; /* Centraliza os botões na grid */
+        }
+
+        .button {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: #444;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: var(--text-color);
+            transition: background-color 0.1s ease, transform 0.1s ease, box-shadow 0.1s ease;
+            user-select: none;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .button.pressed {
+            background-color: var(--accent-color);
+            transform: scale(1.1);
+            box-shadow: 0 0 15px var(--accent-color), 0 0 5px var(--accent-color);
+        }
+
+        /* Responsividade básica */
+        @media (max-width: 900px) {
+            .joysticks-wrapper {
+                flex-direction: column;
+                align-items: center;
+            }
+            .joystick-container {
+                min-width: unset; /* Remove o min-width para telas pequenas */
+                width: 90%; /* Ocupa mais largura em telas pequenas */
+                max-width: 400px; /* Limita a largura em telas muito pequenas */
+            }
+            .axes-grid {
+                grid-template-columns: 1fr; /* Uma coluna para eixos em telas menores */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="connection-area">
+        <h1>Visualizador de Joysticks Gamepad API</h1>
+        <button id="connectButton">Conectar Joysticks</button>
+        <p id="statusMessage">Por favor, conecte um joystick e interaja com ele.</p>
+    </div>
+
+    <main class="joysticks-wrapper">
+        <div class="joystick-container" id="joystick1-container">
+            <h2>Joystick 1 (Desconectado)</h2>
+            <div class="axes-grid" id="j1-axes"></div>
+            <div class="buttons-grid" id="j1-buttons"></div>
+        </div>
+        <div class="joystick-container" id="joystick2-container">
+            <h2>Joystick 2 (Desconectado)</h2>
+            <div class="axes-grid" id="j2-axes"></div>
+            <div class="buttons-grid" id="j2-buttons"></div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Referências aos elementos DOM, sem o botão de conexão e a mensagem de status
+            const j1AxesContainer = document.getElementById('j1-axes');
+            const j1ButtonsContainer = document.getElementById('j1-buttons');
+            const j2AxesContainer = document.getElementById('j2-axes');
+            const j2ButtonsContainer = document.getElementById('j2-buttons');
+
+            let gamepads = {}; // Objeto para armazenar os gamepads conectados
+
+            // --- Funções para criação de elementos DOM ---
+            const createAxisElement = (index, idPrefix) => {
+                const axisDiv = document.createElement('div');
+                axisDiv.className = 'axis';
+                axisDiv.innerHTML = `
+                    <span class="axis-label">
+                        <span>Eixo ${index + 1}</span>
+                        <span class="axis-value" id="${idPrefix}value-${index}">0</span>
+                    </span>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-center"></div>
+                        <div class="progress-bar" id="${idPrefix}${index}"></div>
+                    </div>
+                `;
+                return axisDiv;
+            };
+
+            const createButtonElement = (index, idPrefix) => {
+                const buttonDiv = document.createElement('div');
+                buttonDiv.className = 'button';
+                buttonDiv.id = `${idPrefix}${index}`;
+                buttonDiv.textContent = index + 1;
+                return buttonDiv;
+            };
+
+            // --- Event Listeners para conexão e desconexão de gamepads ---
+            window.addEventListener("gamepadconnected", (event) => {
+                const gamepad = event.gamepad;
+                console.log(`Gamepad conectado na porta ${gamepad.index}: ${gamepad.id}`);
+                gamepads[gamepad.index] = gamepad;
+                updateGamepadDisplay(); // Atualiza a exibição após conectar
+            });
+
+            window.addEventListener("gamepaddisconnected", (event) => {
+                const gamepad = event.gamepad;
+                console.log(`Gamepad desconectado da porta ${gamepad.index}: ${gamepad.id}`);
+                delete gamepads[gamepad.index];
+                updateGamepadDisplay(); // Atualiza a exibição após desconectar
+            });
+
+            // --- Função para atualizar a interface com os dados do gamepad ---
+            function updateGamepadDisplay() {
+                // Limpa os displays existentes para evitar duplicação ou dados antigos
+                j1AxesContainer.innerHTML = '';
+                j1ButtonsContainer.innerHTML = '';
+                j2AxesContainer.innerHTML = '';
+                j2ButtonsContainer.innerHTML = '';
+
+                const connectedGamepads = navigator.getGamepads();
+
+                // Gamepad 1 (índice 0)
+                if (connectedGamepads[0]) {
+                    const gp1 = connectedGamepads[0];
+                    document.querySelector('#joystick1-container h2').textContent = `Joystick 1 (${gp1.id})`;
+
+                    // Eixos do Gamepad 1
+                    for (let i = 0; i < gp1.axes.length; i++) {
+                        const axisElement = createAxisElement(i, 'j1-axis-');
+                        j1AxesContainer.appendChild(axisElement);
+                    }
+                    // Botões do Gamepad 1
+                    for (let i = 0; i < gp1.buttons.length; i++) {
+                        const buttonElement = createButtonElement(i, 'j1-button-');
+                        j1ButtonsContainer.appendChild(buttonElement);
+                    }
+                } else {
+                    document.querySelector('#joystick1-container h2').textContent = `Joystick 1 (Desconectado)`;
+                }
+
+                // Gamepad 2 (índice 1)
+                if (connectedGamepads[1]) {
+                    const gp2 = connectedGamepads[1];
+                    document.querySelector('#joystick2-container h2').textContent = `Joystick 2 (${gp2.id})`;
+
+                    // Eixos do Gamepad 2
+                    for (let i = 0; i < gp2.axes.length; i++) {
+                        const axisElement = createAxisElement(i, 'j2-axis-');
+                        j2AxesContainer.appendChild(axisElement);
+                    }
+                    // Botões do Gamepad 2
+                    for (let i = 0; i < gp2.buttons.length; i++) {
+                        const buttonElement = createButtonElement(i, 'j2-button-');
+                        j2ButtonsContainer.appendChild(buttonElement);
+                    }
+                } else {
+                    document.querySelector('#joystick2-container h2').textContent = `Joystick 2 (Desconectado)`;
+                }
+            }
+
+            // --- Loop de Animação para ler e atualizar os dados dos gamepads ---
+            function animationLoop() {
+                const currentGamepads = navigator.getGamepads();
+
+                // Atualiza Gamepad 1
+                const gp1 = currentGamepads[0];
+                if (gp1) {
+                    // Atualiza eixos do Gamepad 1
+                    for (let i = 0; i < gp1.axes.length; i++) {
+                        const value = gp1.axes[i]; // Valores de -1 a 1
+                        const bar = document.getElementById(`j1-axis-${i}`);
+                        const valueDisplay = document.getElementById(`j1-axis-value-${i}`);
+
+                        if (bar && valueDisplay) {
+                            // Mapeia o valor de -1 a 1 para largura de 0 a 100%
+                            const percentage = Math.abs(value) * 50; // De 0 a 50%
+                            bar.style.width = `${percentage}%`;
+
+                            if (value >= 0) {
+                                bar.style.left = '50%';
+                                bar.style.right = 'auto';
+                            } else {
+                                bar.style.right = '50%';
+                                bar.style.left = 'auto';
+                            }
+                            valueDisplay.textContent = value.toFixed(2); // Exibe com 2 casas decimais
+                        }
+                    }
+
+                    // Atualiza botões do Gamepad 1
+                    for (let i = 0; i < gp1.buttons.length; i++) {
+                        const button = document.getElementById(`j1-button-${i}`);
+                        if (button) {
+                            button.classList.toggle('pressed', gp1.buttons[i].pressed);
+                        }
+                    }
+                }
+
+                // Atualiza Gamepad 2
+                const gp2 = currentGamepads[1];
+                if (gp2) {
+                    // Atualiza eixos do Gamepad 2
+                    for (let i = 0; i < gp2.axes.length; i++) {
+                        const value = gp2.axes[i];
+                        const bar = document.getElementById(`j2-axis-${i}`);
+                        const valueDisplay = document.getElementById(`j2-axis-value-${i}`);
+
+                        if (bar && valueDisplay) {
+                            const percentage = Math.abs(value) * 50;
+                            bar.style.width = `${percentage}%`;
+
+                            if (value >= 0) {
+                                bar.style.left = '50%';
+                                bar.style.right = 'auto';
+                            } else {
+                                bar.style.right = '50%';
+                                bar.style.left = 'auto';
+                            }
+                            valueDisplay.textContent = value.toFixed(2);
+                        }
+                    }
+
+                    // Atualiza botões do Gamepad 2
+                    for (let i = 0; i < gp2.buttons.length; i++) {
+                        const button = document.getElementById(`j2-button-${i}`);
+                        if (button) {
+                            button.classList.toggle('pressed', gp2.buttons[i].pressed);
+                        }
+                    }
+                }
+
+                requestAnimationFrame(animationLoop);
+            }
+
+            // Inicia o loop de animação
+            animationLoop();
+
+            // Chamada inicial para garantir que o display seja configurado caso já haja joysticks conectados
+            // (por exemplo, se a página for recarregada e um joystick já estiver ativo).
+            updateGamepadDisplay();
+        });
+    </script>
+</body>
+</html>
