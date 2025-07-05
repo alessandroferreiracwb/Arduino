@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Joystick</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        #status {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            color: #555;
+            text-align: center;
+        }
+        .gamepad-container {
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 700px;
+            text-align: left;
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+        }
+        .gamepad-container h2 {
+            color: #007bff;
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .gamepad-container p {
+            margin-bottom: 8px;
+        }
+        .data-section {
+            margin-top: 20px;
+            border-top: 1px dashed #eee;
+            padding-top: 15px;
+        }
+        .data-section h3 {
+            color: #4CAF50;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 120px; /* Ajustado para visualização + dados */
+            overflow-y: auto;
+            font-size: 0.9em;
+        }
+        strong {
+            color: #333;
+        }
+
+        /* Estilos para os Botões Visuais */
+        .buttons-visual {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+        .button-indicator {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: #333;
+            border: 2px solid #aaa;
+            transition: background-color 0.1s ease, border-color 0.1s ease;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+            flex-shrink: 0; /* Impede que os botões diminuam */
+        }
+        .button-indicator.pressed {
+            background-color: #28a745; /* Verde quando pressionado */
+            border-color: #1e7e34;
+            color: white;
+            box-shadow: 1px 1px 5px rgba(40, 167, 69, 0.5);
+        }
+        .button-indicator.active-value {
+            background-color: #ffc107; /* Amarelo para botões com valor analógico */
+            border-color: #e0a800;
+            color: #333;
+        }
+
+        /* Estilos para os Eixos Visuais */
+        .axes-visual {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Colunas flexíveis */
+            gap: 15px;
+            margin-top: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #eee;
+            margin-bottom: 15px;
+        }
+        .axis-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f8f8f8;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+        }
+        .axis-group span {
+            font-size: 0.9em;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        .axis-bar-container {
+            width: 100px;
+            height: 10px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 5px;
+            position: relative;
+        }
+        .axis-bar {
+            height: 100%;
+            background-color: #007bff; /* Azul */
+            position: absolute;
+            top: 0;
+            transition: width 0.05s ease; /* Transição suave */
+        }
+        /* Para valores negativos (esquerda/cima) */
+        .axis-bar.negative {
+            background-color: #dc3545; /* Vermelho */
+            right: 50%;
+            transform: translateX(50%);
+        }
+        /* Para valores positivos (direita/baixo) */
+        .axis-bar.positive {
+            background-color: #28a745; /* Verde */
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Estilo para um indicador de quadrado para eixos que são de controle de posição */
+        .analog-stick-visual {
+            width: 80px;
+            height: 80px;
+            border: 2px solid #999;
+            background-color: #e9e9e9;
+            position: relative;
+            margin-top: 10px;
+            border-radius: 5px;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+        }
+        .analog-stick-dot {
+            width: 15px;
+            height: 15px;
+            background-color: #007bff;
+            border-radius: 50%;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%); /* Centraliza o ponto */
+            transition: transform 0.05s ease;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <h1>Visualizador de Dados do Joystick</h1>
+    <p id="status">Conecte seus joysticks e interaja com eles...</p>
+
+    <div id="gamepad-info-0" class="gamepad-container">
+        <h2>Joystick 1: <span id="gamepadTitle-0">Nenhum Conectado</span></h2>
+        <p><strong>ID:</strong> <span id="gamepadId-0">Nenhum</span></p>
+        <p><strong>Eixos:</strong> <span id="numAxes-0">0</span> | <strong>Botões:</strong> <span id="numButtons-0">0</span></p>
+
+        <div class="data-section">
+            <h3>Visualização dos Eixos:</h3>
+            <div class="axes-visual" id="axesVisual-0">
+                </div>
+            <h3>Valores dos Eixos:</h3>
+            <pre id="axesData-0">Aguardando dados...</pre>
+        </div>
+
+        <div class="data-section">
+            <h3>Visualização dos Botões:</h3>
+            <div class="buttons-visual" id="buttonsVisual-0">
+                </div>
+            <h3>Estado dos Botões:</h3>
+            <pre id="buttonsData-0">Aguardando dados...</pre>
+        </div>
+    </div>
+
+    <div id="gamepad-info-1" class="gamepad-container">
+        <h2>Joystick 2: <span id="gamepadTitle-1">Nenhum Conectado</span></h2>
+        <p><strong>ID:</strong> <span id="gamepadId-1">Nenhum</span></p>
+        <p><strong>Eixos:</strong> <span id="numAxes-1">0</span> | <strong>Botões:</strong> <span id="numButtons-1">0</span></p>
+        <div class="data-section">
+            <h3>Visualização dos Eixos:</h3>
+            <div class="axes-visual" id="axesVisual-1">
+                </div>
+            <h3>Valores dos Eixos:</h3>
+            <pre id="axesData-1">Aguardando dados...</pre>
+        </div>
+        <div class="data-section">
+            <h3>Visualização dos Botões:</h3>
+            <div class="buttons-visual" id="buttonsVisual-1">
+                </div>
+            <h3>Estado dos Botões:</h3>
+            <pre id="buttonsData-1">Aguardando dados...</pre>
+        </div>
+    </div>
+
+    <script>
+        const connectedGamepads = {};
+        let animationFrameId;
+
+        // Função para criar dinamicamente os elementos visuais dos botões
+        function createButtonIndicators(gamepadIndex, numButtons) {
+            const buttonsVisualDiv = document.getElementById(`buttonsVisual-${gamepadIndex}`);
+            buttonsVisualDiv.innerHTML = ''; // Limpa botões antigos, se houver
+            for (let i = 0; i < numButtons; i++) {
+                const buttonDiv = document.createElement('div');
+                buttonDiv.id = `button-${gamepadIndex}-${i}`;
+                buttonDiv.className = 'button-indicator';
+                buttonDiv.textContent = i;
+                buttonsVisualDiv.appendChild(buttonDiv);
+            }
+        }
+
+        // Função para criar dinamicamente os elementos visuais dos eixos
+        function createAxisIndicators(gamepadIndex, numAxes) {
+            const axesVisualDiv = document.getElementById(`axesVisual-${gamepadIndex}`);
+            axesVisualDiv.innerHTML = ''; // Limpa eixos antigos, se houver
+
+            for (let i = 0; i < numAxes; i++) {
+                const axisGroup = document.createElement('div');
+                axisGroup.className = 'axis-group';
+
+                const axisLabel = document.createElement('span');
+                axisLabel.textContent = `Eixo ${i}`;
+                axisGroup.appendChild(axisLabel);
+
+                // Heurística simples para identificar pares de eixos (analógicos X, Y)
+                // Se for um índice par e o próximo índice existe, assume que é um stick
+                if (i % 2 === 0 && (i + 1) < numAxes) {
+                    const analogStickVisual = document.createElement('div');
+                    analogStickVisual.className = 'analog-stick-visual';
+                    analogStickVisual.id = `analog-stick-${gamepadIndex}-${i}`;
+
+                    const analogDot = document.createElement('div');
+                    analogDot.className = 'analog-stick-dot';
+                    analogDot.id = `analog-stick-dot-${gamepadIndex}-${i}`;
+                    analogStickVisual.appendChild(analogDot);
+                    axisGroup.appendChild(analogStickVisual);
+                    i++; // Pula o próximo eixo, pois ele é parte deste stick
+                } else {
+                    // Se não for um par de eixos (gatilhos, etc.)
+                    const axisBarContainer = document.createElement('div');
+                    axisBarContainer.className = 'axis-bar-container';
+
+                    const axisBar = document.createElement('div');
+                    axisBar.className = 'axis-bar';
+                    axisBar.id = `axis-bar-${gamepadIndex}-${i}`;
+                    axisBarContainer.appendChild(axisBar);
+                    axisGroup.appendChild(axisBarContainer);
+                }
+                axesVisualDiv.appendChild(axisGroup);
+            }
+        }
+
+
+        // Função para atualizar a UI de um gamepad específico
+        function updateGamepadUI(gamepad) {
+            const index = gamepad.index;
+            const container = document.getElementById(`gamepad-info-${index}`);
+
+            if (!container) {
+                // Se o container não existe, cria um dinamicamente para mais de 2 joysticks
+                // OU loga um aviso se o HTML não tiver espaço para mais
+                console.warn(`Container para gamepad ${index} não encontrado. Por favor, adicione mais divs 'gamepad-container' no HTML para índices maiores.`);
+                // Criar dinamicamente pode ser complexo e é melhor ter divs pré-definidas para um número limitado.
+                return;
+            }
+
+            document.getElementById(`gamepadTitle-${index}`).textContent = gamepad.id;
+            document.getElementById(`gamepadId-${index}`).textContent = gamepad.id;
+            document.getElementById(`numAxes-${index}`).textContent = gamepad.axes.length;
+            document.getElementById(`numButtons-${index}`).textContent = gamepad.buttons.length;
+
+            // --- Atualizar Visualização dos Eixos ---
+            // Certifica-se de que os elementos visuais dos eixos foram criados
+            if (document.getElementById(`axesVisual-${index}`).children.length === 0 ||
+                document.getElementById(`numAxes-${index}`).textContent != gamepad.axes.length) {
+                createAxisIndicators(index, gamepad.axes.length);
+            }
+
+            for (let i = 0; i < gamepad.axes.length; i++) {
+                const axisValue = gamepad.axes[i];
+
+                // Heurística para analógicos (pares de eixos)
+                if (i % 2 === 0 && (i + 1) < gamepad.axes.length) {
+                    const analogDot = document.getElementById(`analog-stick-dot-${index}-${i}`);
+                    if (analogDot) {
+                        // Mapeia de [-1, 1] para [0, 100%]
+                        const x = ((gamepad.axes[i] + 1) / 2) * 100;
+                        const y = ((gamepad.axes[i + 1] + 1) / 2) * 100; // Y invertido para tela (0=top, 100=bottom)
+
+                        analogDot.style.transform = `translate(-50%, -50%) translate(${x - 50}%, ${y - 50}%)`;
+                    }
+                    i++; // Pula o próximo eixo, pois ele é parte deste stick
+                } else {
+                    // Para eixos que não são pares (gatilhos, etc.)
+                    const axisBar = document.getElementById(`axis-bar-${index}-${i}`);
+                    if (axisBar) {
+                        // Valores de -1 a 1 para eixos.
+                        // Para barras, vamos mostrar a magnitude e direção
+                        const widthPercentage = Math.abs(axisValue) * 100;
+                        axisBar.style.width = `${widthPercentage}%`;
+
+                        // Remove classes de direção e adiciona a correta
+                        axisBar.classList.remove('negative', 'positive');
+                        if (axisValue < -0.05) { // Limiar para considerar negativo
+                            axisBar.classList.add('negative');
+                            axisBar.style.left = `${50 - (widthPercentage / 2)}%`; // Centraliza no meio para expansão
+                            axisBar.style.right = 'auto';
+                        } else if (axisValue > 0.05) { // Limiar para considerar positivo
+                            axisBar.classList.add('positive');
+                            axisBar.style.right = `${50 - (widthPercentage / 2)}%`; // Centraliza no meio para expansão
+                            axisBar.style.left = 'auto';
+                        } else {
+                            // Se o valor for próximo de zero, centraliza a barra e a deixa pequena
+                            axisBar.style.width = '0%'; // Ou um valor mínimo para indicar o centro
+                            axisBar.style.left = '50%';
+                            axisBar.style.right = 'auto';
+                            axisBar.style.transform = 'translateX(-50%)';
+                        }
+                    }
+                }
+            }
+
+            // --- Atualizar Visualização dos Botões ---
+            // Certifica-se de que os elementos visuais dos botões foram criados
+            if (document.getElementById(`buttonsVisual-${index}`).children.length === 0 ||
+                document.getElementById(`numButtons-${index}`).textContent != gamepad.buttons.length) {
+                createButtonIndicators(index, gamepad.buttons.length);
+            }
+
+            for (let i = 0; i < gamepad.buttons.length; i++) {
+                const button = gamepad.buttons[i];
+                const buttonDiv = document.getElementById(`button-${index}-${i}`);
+                if (buttonDiv) {
+                    buttonDiv.classList.remove('pressed', 'active-value'); // Limpa classes anteriores
+
+                    if (button.pressed) {
+                        buttonDiv.classList.add('pressed');
+                    } else if (button.value > 0.05) { // Para botões analógicos que não estão "pressionados" mas têm valor
+                        buttonDiv.classList.add('active-value');
+                    }
+                }
+            }
+
+            // --- Atualizar Dados Numéricos (Pre-formatted text) ---
+            const axesOutput = gamepad.axes.map((axis, i) => `Eixo ${i}: ${axis.toFixed(4)}`).join('\n');
+            document.getElementById(`axesData-${index}`).textContent = axesOutput;
+
+            const buttonsOutput = gamepad.buttons.map((button, i) =>
+                `Botão ${i}: Pressionado: ${button.pressed ? 'SIM' : 'NÃO'}, Valor: ${button.value.toFixed(2)}`
+            ).join('\n');
+            document.getElementById(`buttonsData-${index}`).textContent = buttonsOutput;
+        }
+
+        // Função para limpar a UI de um gamepad desconectado
+        function clearGamepadUI(index) {
+            const container = document.getElementById(`gamepad-info-${index}`);
+            if (!container) return;
+
+            document.getElementById(`gamepadTitle-${index}`).textContent = "Nenhum Conectado";
+            document.getElementById(`gamepadId-${index}`).textContent = "Nenhum";
+            document.getElementById(`numAxes-${index}`).textContent = "0";
+            document.getElementById(`numButtons-${index}`).textContent = "0";
+            document.getElementById(`axesVisual-${index}`).innerHTML = '';
+            document.getElementById(`buttonsVisual-${index}`).innerHTML = '';
+            document.getElementById(`axesData-${index}`).textContent = "Aguardando dados...";
+            document.getElementById(`buttonsData-${index}`).textContent = "Aguardando dados...";
+        }
+
+        // Evento quando um gamepad é conectado
+        window.addEventListener("gamepadconnected", (event) => {
+            const gamepad = event.gamepad;
+            connectedGamepads[gamepad.index] = gamepad;
+            document.getElementById("status").textContent = `Joystick conectado! ID: ${gamepad.id} (Índice: ${gamepad.index})`;
+            console.log("Gamepad conectado:", gamepad);
+
+            // Cria os indicadores visuais para o novo gamepad
+            createButtonIndicators(gamepad.index, gamepad.buttons.length);
+            createAxisIndicators(gamepad.index, gamepad.axes.length);
+
+            startGamepadPolling();
+        });
+
+        // Evento quando um gamepad é desconectado
+        window.addEventListener("gamepaddisconnected", (event) => {
+            const gamepad = event.gamepad;
+            delete connectedGamepads[gamepad.index];
+            document.getElementById("status").textContent = `Joystick desconectado! ID: ${gamepad.id} (Índice: ${gamepad.index}). Total: ${Object.keys(connectedGamepads).length} conectados.`;
+            console.log("Joystick desconectado:", gamepad);
+            clearGamepadUI(gamepad.index);
+
+            if (Object.keys(connectedGamepads).length === 0) {
+                stopGamepadPolling();
+                document.getElementById("status").textContent = "Nenhum joystick conectado. Conecte um novo.";
+            }
+        });
+
+        // Função principal para iniciar a leitura contínua dos dados de TODOS os gamepads
+        function startGamepadPolling() {
+            if (animationFrameId) return;
+
+            function pollGamepads() {
+                const currentAllGamepads = navigator.getGamepads();
+
+                for (let i = 0; i < currentAllGamepads.length; i++) {
+                    const gamepad = currentAllGamepads[i];
+                    if (gamepad) {
+                        connectedGamepads[gamepad.index] = gamepad;
+                        updateGamepadUI(gamepad);
+                    } else if (connectedGamepads[i]) {
+                        delete connectedGamepads[i];
+                        clearGamepadUI(i);
+                    }
+                }
+                animationFrameId = requestAnimationFrame(pollGamepads);
+            }
+            animationFrameId = requestAnimationFrame(pollGamepads);
+        }
+
+        // Função para parar a leitura contínua
+        function stopGamepadPolling() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }
+
+        // Verifica se já há gamepads conectados ao carregar a página
+        const initialGamepads = navigator.getGamepads();
+        for (let i = 0; i < initialGamepads.length; i++) {
+            const gamepad = initialGamepads[i];
+            if (gamepad) {
+                connectedGamepads[gamepad.index] = gamepad;
+                // Cria os elementos visuais para os gamepads já conectados
+                createButtonIndicators(gamepad.index, gamepad.buttons.length);
+                createAxisIndicators(gamepad.index, gamepad.axes.length);
+                updateGamepadUI(gamepad); // Atualiza a UI inicial
+            }
+        }
+
+        if (Object.keys(connectedGamepads).length > 0) {
+            document.getElementById("status").textContent = `Joysticks já conectados: ${Object.keys(connectedGamepads).length}.`;
+            startGamepadPolling();
+        } else {
+            document.getElementById("status").textContent = "Nenhum joystick conectado. Conecte um ou mais.";
+        }
+    </script>
+</body>
+</html>
