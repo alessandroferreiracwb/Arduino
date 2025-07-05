@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Joysticks com WebHID</title>
+    <style>
+        /* Variáveis CSS para um tema mais fácil de gerenciar */
+        :root {
+            --background-color: #121212;
+            --surface-color: #1e1e1e;
+            --card-background: #2a2a2a;
+            --text-color: #e0e0e0;
+            --secondary-text-color: #aaa;
+            --primary-color: #bb86fc; /* Cor principal de destaque */
+            --primary-variant-color: #9e6ae0; /* Variação da cor principal para hover */
+            --accent-color: #03dac6; /* Cor de destaque para botões pressionados */
+            --border-color: #333;
+            --progress-bar-start: #bb86fc;
+            --progress-bar-end: #3700b3;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        .connection-area {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        #connectButton {
+            font-size: 1.2em;
+            padding: 12px 25px;
+            border-radius: 8px;
+            border: none;
+            background-color: var(--primary-color);
+            color: var(--background-color);
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #connectButton:hover {
+            background-color: var(--primary-variant-color);
+        }
+
+        #statusMessage {
+            margin-top: 15px;
+            color: var(--secondary-text-color);
+            background-color: var(--card-background);
+            border-radius: 5px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            min-height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .joysticks-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 40px;
+            flex-wrap: wrap;
+            width: 100%;
+            max-width: 1200px; /* Limita a largura máxima para melhor apresentação */
+        }
+
+        .joystick-container {
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            padding: 25px;
+            min-width: 380px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--border-color);
+            flex: 1; /* Permite que os containers cresçam */
+            max-width: 45%; /* Limita a largura em telas maiores */
+            box-sizing: border-box; /* Inclui padding e border no cálculo da largura */
+        }
+
+        h2 {
+            text-align: center;
+            margin-top: 0;
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 25px;
+        }
+
+        .axes-grid, .buttons-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .axes-grid {
+            grid-template-columns: 1fr 1fr;
+            margin-bottom: 25px;
+        }
+
+        .axis {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .axis-label {
+            font-size: 0.9em;
+            color: var(--secondary-text-color);
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .axis-value {
+            font-weight: bold;
+            color: var(--text-color);
+            min-width: 45px;
+            text-align: right;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            background-color: var(--border-color);
+            border-radius: 5px;
+            overflow: hidden;
+            height: 20px;
+            position: relative;
+        }
+
+        .progress-bar {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            height: 100%;
+            background: linear-gradient(90deg, var(--progress-bar-start), var(--progress-bar-end));
+            border-radius: 5px;
+            transition: width 0.05s ease-out, left 0.05s ease-out, right 0.05s ease-out; /* Transição mais suave */
+        }
+
+        .progress-bar-center {
+            height: 100%;
+            width: 2px;
+            background-color: var(--background-color);
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            z-index: 1; /* Garante que a linha central esteja acima da barra */
+        }
+
+        .buttons-grid {
+            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+            justify-items: center; /* Centraliza os botões na grid */
+        }
+
+        .button {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: #444;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: var(--text-color);
+            transition: background-color 0.1s ease, transform 0.1s ease, box-shadow 0.1s ease;
+            user-select: none;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .button.pressed {
+            background-color: var(--accent-color);
+            transform: scale(1.1);
+            box-shadow: 0 0 15px var(--accent-color), 0 0 5px var(--accent-color);
+        }
+
+        /* Responsividade básica */
+        @media (max-width: 900px) {
+            .joysticks-wrapper {
+                flex-direction: column;
+                align-items: center;
+            }
+            .joystick-container {
+                min-width: unset; /* Remove o min-width para telas pequenas */
+                width: 90%; /* Ocupa mais largura em telas pequenas */
+                max-width: 400px; /* Limita a largura em telas muito pequenas */
+            }
+            .axes-grid {
+                grid-template-columns: 1fr; /* Uma coluna para eixos em telas menores */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="connection-area">
+        <h1>Visualizador de Joysticks WebHID</h1>
+        <button id="connectButton">Conectar aos Joysticks</button>
+        <p id="statusMessage">Por favor, clique para conectar.</p>
+    </div>
+
+    <main class="joysticks-wrapper">
+        <div class="joystick-container" id="joystick1-container">
+            <h2>Joystick 1 (Principal)</h2>
+            <div class="axes-grid" id="j1-axes"></div>
+            <div class="buttons-grid" id="j1-buttons"></div>
+        </div>
+        <div class="joystick-container" id="joystick2-container">
+            <h2>Joystick 2 (Teclado)</h2>
+            <div class="axes-grid" id="j2-axes"></div>
+            <div class="buttons-grid" id="j2-buttons"></div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Referências aos elementos DOM
+            const connectButton = document.getElementById('connectButton');
+            const statusMessage = document.getElementById('statusMessage');
+            const j1AxesContainer = document.getElementById('j1-axes');
+            const j1ButtonsContainer = document.getElementById('j1-buttons');
+            const j2AxesContainer = document.getElementById('j2-axes');
+            const j2ButtonsContainer = document.getElementById('j2-buttons');
+
+            // Configurações dos Joysticks
+            const J1_NUM_AXES = 8; // Número de eixos para o Joystick 1
+            const J1_NUM_BUTTONS = 12; // Número de botões para o Joystick 1
+            const J2_NUM_AXES = 5; // Número de eixos para o Joystick 2
+            const J2_NUM_BUTTONS = 24; // Número de botões para o Joystick 2
+
+            // Estado para suavização dos eixos
+            // Usa objetos para manter o estado individual de cada eixo de cada joystick
+            const j1AxisStates = Array(J1_NUM_AXES).fill(0).map(() => ({ current: 0, target: 0, lastSign: 1 }));
+            const j2AxisStates = Array(J2_NUM_AXES).fill(0).map(() => ({ current: 0, target: 0, lastSign: 1 }));
+
+
+            // --- Funções para criação de elementos DOM ---
+            /**
+             * Cria um elemento HTML para um eixo de joystick.
+             * @param {number} index - O índice do eixo.
+             * @param {string} idPrefix - Prefixo para o ID do eixo (ex: 'j1-axis-').
+             * @returns {HTMLElement} O elemento div do eixo.
+             */
+            const createAxisElement = (index, idPrefix) => {
+                const axisDiv = document.createElement('div');
+                axisDiv.className = 'axis';
+                axisDiv.innerHTML = `
+                    <span class="axis-label">
+                        <span>Eixo ${index + 1}</span>
+                        <span class="axis-value" id="${idPrefix}value-${index}">0</span>
+                    </span>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-center"></div>
+                        <div class="progress-bar" id="${idPrefix}${index}"></div>
+                    </div>
+                `;
+                return axisDiv;
+            };
+
+            /**
+             * Cria um elemento HTML para um botão de joystick.
+             * @param {number} index - O índice do botão.
+             * @param {string} idPrefix - Prefixo para o ID do botão (ex: 'j1-button-').
+             * @returns {HTMLElement} O elemento div do botão.
+             */
+            const createButtonElement = (index, idPrefix) => {
+                const buttonDiv = document.createElement('div');
+                buttonDiv.className = 'button';
+                buttonDiv.id = `${idPrefix}${index}`;
+                buttonDiv.textContent = index + 1;
+                return buttonDiv;
+            };
+
+            // --- Geração de elementos dinâmicos ---
+            // Gera os elementos dos eixos para o Joystick 1
+            for (let i = 0; i < J1_NUM_AXES; i++) {
+                j1AxesContainer.appendChild(createAxisElement(i, 'j1-axis-'));
+            }
+            // Gera os elementos dos botões para o Joystick 1
+            for (let i = 0; i < J1_NUM_BUTTONS; i++) {
+                j1ButtonsContainer.appendChild(createButtonElement(i, 'j1-button-'));
+            }
+            // Gera os elementos dos eixos para o Joystick 2
+            for (let i = 0; i < J2_NUM_AXES; i++) {
+                j2AxesContainer.appendChild(createAxisElement(i, 'j2-axis-'));
+            }
+            // Gera os elementos dos botões para o Joystick 2
+            for (let i = 0; i < J2_NUM_BUTTONS; i++) {
+                j2ButtonsContainer.appendChild(createButtonElement(i, 'j2-button-'));
+            }
+
+            // --- Event Listener para o botão de conexão ---
+            connectButton.addEventListener('click', async () => {
+                if (!("hid" in navigator)) {
+                    statusMessage.textContent = "Erro: O seu navegador não suporta a WebHID API.";
+                    return;
+                }
+                try {
+                    statusMessage.textContent = "A aguardar seleção de dispositivo...";
+                    // Filtro de exemplo (Vendor ID do Arduino). Remova ou modifique conforme necessário.
+                    const devices = await navigator.hid.requestDevice({ filters: [{ vendorId: 0x2341 }] });
+
+                    if (devices.length === 0) {
+                        statusMessage.textContent = "Nenhum dispositivo selecionado.";
+                        return;
+                    }
+
+                    statusMessage.textContent = "Dispositivos selecionados. A conectar...";
+                    connectButton.style.display = 'none'; // Esconde o botão após a seleção
+
+                    for (const device of devices) {
+                        await device.open();
+                        // Adiciona um listener para relatórios de entrada de cada dispositivo
+                        device.addEventListener('inputreport', event => {
+                            handleInputReport(event.reportId, event.data);
+                        });
+                        console.log(`Dispositivo conectado: ${device.productName} (Vendor ID: ${device.vendorId}, Product ID: ${device.productId})`);
+                    }
+
+                    statusMessage.textContent = "Dispositivos conectados e a ouvir!";
+                } catch (error) {
+                    console.error('Erro na WebHID:', error);
+                    if (error.name === 'SecurityError') {
+                        statusMessage.innerHTML = `<b>Erro de Permissão de Segurança:</b><br>O acesso aos dispositivos HID foi bloqueado.<br><br><b>Solução:</b> Guarde este código como um ficheiro .html e abra-o diretamente no seu navegador. Ou use um servidor local (ex: Live Server).`;
+                    } else {
+                        statusMessage.textContent = `Erro ao conectar: ${error.message}`;
+                    }
+                }
+            });
+
+            // --- Funções de atualização de estado do joystick ---
+
+            /**
+             * Lida com os relatórios de entrada do dispositivo HID.
+             * @param {number} reportId - O ID do relatório.
+             * @param {DataView} dataView - Os dados do relatório.
+             */
+            function handleInputReport(reportId, dataView) {
+                // Mapeia reportIds para funções de atualização específicas
+                if (reportId === 3) { // Exemplo para Joystick 1 (ajuste conforme o reportId do seu dispositivo)
+                    updateJoystick1(dataView);
+                } else if (reportId === 4) { // Exemplo para Joystick 2 (ajuste conforme o reportId do seu dispositivo)
+                    updateJoystick2(dataView);
+                }
+                // Adicione mais `else if` para outros reportIds, se houver
+            }
+
+            /**
+             * Atualiza o estado do Joystick 1 (botões e eixos).
+             * @param {DataView} data - Os dados do relatório do Joystick 1.
+             */
+            function updateJoystick1(data) {
+                // Lendo os 2 bytes dos botões
+                const buttonsWord = data.getUint16(0, true);
+
+                // Atualiza os botões do Joystick 1
+                for (let i = 0; i < J1_NUM_BUTTONS; i++) {
+                    const button = document.getElementById(`j1-button-${i}`);
+                    if (button) {
+                        button.classList.toggle('pressed', (buttonsWord >> i) & 1);
+                    }
+                }
+
+                // Atualiza os estados dos eixos do Joystick 1 (com suavização)
+                for (let i = 0; i < J1_NUM_AXES; i++) {
+                    // Os eixos começam no offset 2 (após os 2 bytes dos botões)
+                    const newTarget = data.getInt16(2 + (i * 2), true); // Leitura de 2 bytes para cada eixo
+                    const state = j1AxisStates[i];
+                    const newSign = Math.sign(newTarget) || 1; // Garante 1 se for 0 para evitar NaN
+
+                    // Se o sinal mudou (passou de positivo para negativo ou vice-versa),
+                    // reseta a posição atual para evitar movimentos bruscos.
+                    if (newSign !== state.lastSign) {
+                        state.current = 0;
+                    }
+                    state.target = newTarget;
+                    state.lastSign = newSign;
+                }
+            }
+
+            /**
+             * Atualiza o estado do Joystick 2 (botões e eixos).
+             * @param {DataView} data - Os dados do relatório do Joystick 2.
+             */
+            function updateJoystick2(data) {
+                // Assume que os botões estão em 3 bytes consecutivos (0, 1, 2)
+                const buttonsByte1 = data.getUint8(0);
+                const buttonsByte2 = data.getUint8(1);
+                const buttonsByte3 = data.getUint8(2);
+
+                // Atualiza os botões do Joystick 2
+                for (let i = 0; i < 8; i++) {
+                    const button = document.getElementById(`j2-button-${i}`);
+                    if (button) button.classList.toggle('pressed', ((buttonsByte1 >> i) & 1));
+                }
+                for (let i = 0; i < 8; i++) {
+                    const button = document.getElementById(`j2-button-${i + 8}`);
+                    if (button) button.classList.toggle('pressed', ((buttonsByte2 >> i) & 1));
+                }
+                for (let i = 0; i < 8; i++) {
+                    const button = document.getElementById(`j2-button-${i + 16}`);
+                    if (button) button.classList.toggle('pressed', ((buttonsByte3 >> i) & 1));
+                }
+
+                // LÓGICA PARA EIXOS DO JOYSTICK 2: Esta parte foi ativada.
+                // O offset (3) é definido com base na suposição de que os 3 primeiros bytes (0, 1, 2)
+                // são usados para os botões. Se o seu dispositivo enviar os dados de forma diferente,
+                // você PRECISARÁ ajustar este offset.
+                for (let i = 0; i < J2_NUM_AXES; i++) {
+                    // Offset: 3 (bytes de botões) + (índice do eixo * 2 bytes por eixo, pois getInt16 lê 2 bytes)
+                    const newTarget = data.getInt16(3 + (i * 2), true);
+                    const state = j2AxisStates[i];
+                    const newSign = Math.sign(newTarget) || 1;
+
+                    if (newSign !== state.lastSign) {
+                        state.current = 0;
+                    }
+                    state.target = newTarget;
+                    state.lastSign = newSign;
+                }
+            }
+
+            // --- Loop de Animação para suavização dos eixos ---
+            function animationLoop() {
+                const scale = 32767; // Escala máxima esperada para os valores do eixo HID (16-bit signed integer)
+
+                // Atualiza eixos do Joystick 1
+                for (let i = 0; i < j1AxisStates.length; i++) {
+                    const state = j1AxisStates[i];
+                    state.current += (state.target - state.current) * 0.15; // Suavização
+
+                    if (Math.abs(state.target - state.current) < 1) {
+                        state.current = state.target;
+                    }
+
+                    const bar = document.getElementById(`j1-axis-${i}`);
+                    const valueDisplay = document.getElementById(`j1-axis-value-${i}`);
+
+                    if (bar && valueDisplay) {
+                        const percentage = Math.abs(state.current) / scale;
+                        bar.style.width = `${percentage * 50}%`;
+
+                        if (state.current >= 0) {
+                            bar.style.left = '50%';
+                            bar.style.right = 'auto';
+                        } else {
+                            bar.style.right = '50%';
+                            bar.style.left = 'auto';
+                        }
+                        valueDisplay.textContent = Math.round(state.current);
+                    }
+                }
+
+                // Atualiza eixos do Joystick 2
+                for (let i = 0; i < j2AxisStates.length; i++) {
+                    const state = j2AxisStates[i];
+                    state.current += (state.target - state.current) * 0.15; // Suavização
+
+                    if (Math.abs(state.target - state.current) < 1) {
+                        state.current = state.target;
+                    }
+
+                    const bar = document.getElementById(`j2-axis-${i}`);
+                    const valueDisplay = document.getElementById(`j2-axis-value-${i}`);
+
+                    if (bar && valueDisplay) {
+                        const percentage = Math.abs(state.current) / scale;
+                        bar.style.width = `${percentage * 50}%`;
+
+                        if (state.current >= 0) {
+                            bar.style.left = '50%';
+                            bar.style.right = 'auto';
+                        } else {
+                            bar.style.right = '50%';
+                            bar.style.left = 'auto';
+                        }
+                        valueDisplay.textContent = Math.round(state.current);
+                    }
+                }
+
+                requestAnimationFrame(animationLoop);
+            }
+
+            // Inicia o loop de animação
+            animationLoop();
+        });
+    </script>
+</body>
+</html>
