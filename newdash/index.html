@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP32 Dual Joystick Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>ESP32 Dual Joystick Dashboard</h1>
+  <p id="status">Conectando ao WebSocket...</p>
+
+  <div class="container">
+    <div class="joystick-panel">
+      <h2>Joystick Esquerdo</h2>
+      <div class="joystick-axes">
+        <h3>Eixos (X)</h3>
+        <div class="slider-container">
+          <label>Joy_Esq(Y):</label>
+          <input type="range" id="jp_eixo1x" min="-65" max="65" value="0">
+          <span id="jp_eixo1x_value" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>Joy_Esq(X):</label>
+          <input type="range" id="jp_eixo2x" min="-65" max="65" value="0">
+          <span id="jp_eixo2x_value" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>bAnalog(1):</label>
+          <input type="range" id="jp_eixo3x" min="-65" max="65" value="0">
+          <span id="jp_eixo3x_value" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>bAnalog(2):</label>
+          <input type="range" id="jp_eixo4x" min="-65" max="65" value="0">
+          <span id="jp_eixo4x_value" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>bAnalog(3):</label>
+          <input type="range" id="jp_eixo5x" min="-65" max="65" value="0">
+          <span id="jp_eixo5x_value" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>Joy_Dir(Y):</label>
+          <input type="range" id="jp_eixo6x" min="-65" max="65" value="0">
+          <span id="jp_eixo6x_value" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>Joy_Dir(X):</label>
+          <input type="range" id="jp_eixo7x" min="-65" max="65" value="0">
+          <span id="jp_eixo7x_value" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>bAnalog(1):</label>
+          <input type="range" id="jp_eixo8x" min="-65" max="65" value="0">
+          <span id="jp_eixo8x_value" class="slider-value">0</span>
+        </div>
+      </div>
+      <div class="joystick-buttons">
+        <h3>Botoes</h3>
+        <div class="button-grid">
+          <button id="jp_btn1">Btn 1</button><button id="jp_btn2">Btn 2</button><button id="jp_btn3">Btn 3</button><button id="jp_btn4">Btn 4</button>
+          <button id="jp_btn5">Btn 5</button><button id="jp_btn6">Btn 6</button><button id="jp_btn7">Btn 7</button><button id="jp_btn8">Btn 8</button>
+          <button id="jp_btn9">Btn 9</button><button id="jp_btn10">Bt 10</button><button id="jp_btn11">Bt 11</button><button id="jp_btn12">Bt 12</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="joystick-panel">
+      <h2>Joystick 2</h2>
+      <div class="joystick-axes">
+        <h3>Eixos (X)</h3>
+        <div class="slider-container">
+          <label>bAnalog(2):</label>
+          <input type="range" id="j2_eixo1x" min="-65" max="65" value="0">
+          <span id="j2_eixo1x_value" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>bAnalog(3):</label>
+          <input type="range" id="j2_eixo2x" min="-65" max="65" value="0">
+          <span id="j2_eixo2x_value" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>Pedal_Dire:</label>
+          <input type="range" id="j2_eixo3x" min="-65" max="65" value="0">
+          <span id="j2_eixo3x_value" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>Pedal_Esqu:</label>
+          <input type="range" id="j2_eixo4x" min="-65" max="65" value="0">
+          <span id="j2_eixo4x_value" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>Pedal_Adic:</label>
+          <input type="range" id="j2_eixo5x" min="-65" max="65" value="0">
+          <span id="j2_eixo5x_value" class="slider-value">0</span>
+        </div>
+      </div>
+      <div class="joystick-buttons">
+        <h3>Teclado</h3>
+        <div class="button-grid" id="j2-button-grid">
+          </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
