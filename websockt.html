@@ -85,24 +85,24 @@
 
   <div class="container">
     <div class="joystick-panel">
-      <h2>Joystick Principal</h2>
+      <h2>Joystick Esquerdo</h2>
       <div class="joystick-axes">
         <h3>Eixos (X)</h3>
-        <div class="slider-container"><label>Eixo 1 (X):</label><input type="range" id="jp_eixo1x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Eixo 2 (X):</label><input type="range" id="jp_eixo2x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Eixo 3 (X):</label><input type="range" id="jp_eixo3x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Eixo 4 (X):</label><input type="range" id="jp_eixo4x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Eixo 5 (X):</label><input type="range" id="jp_eixo5x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Eixo 6 (X):</label><input type="range" id="jp_eixo6x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Eixo 7 (X):</label><input type="range" id="jp_eixo7x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Eixo 8 (X):</label><input type="range" id="jp_eixo8x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>Joy_Esq(Y):</label><input type="range" id="jp_eixo1x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>Joy_Esq(X):</label><input type="range" id="jp_eixo2x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>bAnalog(1):</label><input type="range" id="jp_eixo3x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>bAnalog(2):</label><input type="range" id="jp_eixo4x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>bAnalog(3):</label><input type="range" id="jp_eixo5x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>Pedal_Esqu:</label><input type="range" id="jp_eixo6x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>Pedal_Dire:</label><input type="range" id="jp_eixo7x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>Pedal_Adic:</label><input type="range" id="jp_eixo8x" min="-100" max="100" value="0"></div>
       </div>
       <div class="joystick-buttons">
-        <h3>Botões</h3>
+        <h3>Botoes</h3>
         <div class="button-grid">
           <button id="jp_btn1">Btn 1</button><button id="jp_btn2">Btn 2</button><button id="jp_btn3">Btn 3</button><button id="jp_btn4">Btn 4</button>
           <button id="jp_btn5">Btn 5</button><button id="jp_btn6">Btn 6</button><button id="jp_btn7">Btn 7</button><button id="jp_btn8">Btn 8</button>
-          <button id="jp_btn9">Btn 9</button><button id="jp_btn10">Btn 10</button><button id="jp_btn11">Btn 11</button><button id="jp_btn12">Btn 12</button>
+          <button id="jp_btn9">Btn 9</button><button id="jp_btn10">Bt 10</button><button id="jp_btn11">Bt 11</button><button id="jp_btn12">Bt 12</button>
         </div>
       </div>
     </div>
@@ -111,14 +111,14 @@
       <h2>Joystick 2</h2>
       <div class="joystick-axes">
         <h3>Eixos (X)</h3>
-        <div class="slider-container"><label>Eixo 1 (X):</label><input type="range" id="j2_eixo1x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Eixo 2 (X):</label><input type="range" id="j2_eixo2x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Eixo 3 (X):</label><input type="range" id="j2_eixo3x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Eixo 4 (X):</label><input type="range" id="j2_eixo4x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Eixo 5 (X):</label><input type="range" id="j2_eixo5x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>Joy_Dir(Y):</label><input type="range" id="j2_eixo1x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>Joy_Dir(X):</label><input type="range" id="j2_eixo2x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>bAnalog(1):</label><input type="range" id="j2_eixo3x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>bAnalog(2):</label><input type="range" id="j2_eixo4x" min="-100" max="100" value="0"></div>
+        <div class="slider-container"><label>bAnalog(3):</label><input type="range" id="j2_eixo5x" min="-100" max="100" value="0"></div>
       </div>
       <div class="joystick-buttons">
-        <h3>Teclas (Botões)</h3>
+        <h3>Teclado</h3>
         <div class="button-grid">
           <script>
             // Gera 24 botões dinamicamente
@@ -134,7 +134,7 @@
   <script>
     // IMPORTANTE: SUBSTITUA 'SEU_IP_DO_ESP32' PELO ENDEREÇO IP REAL DO SEU ESP32
     // Exemplo: var gateway = `ws://192.168.1.100:81/`;
-    var gateway = `ws://192.168.18.89:81/`; 
+    var gateway = `ws://10.0.0.13:81/`; 
     
     var websocket;
     window.addEventListener('load', onLoad);
