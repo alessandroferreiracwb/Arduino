@@ -1,3 +1,4 @@
+// recebe dados via websockt e envia pela serial 
 #include <WiFi.h>
 #include <WebSocketsServer.h>
 #include <ArduinoJson.h> // Certifique-se de ter a biblioteca ArduinoJson instalada
