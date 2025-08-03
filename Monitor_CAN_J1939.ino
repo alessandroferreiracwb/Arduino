@@ -41,9 +41,10 @@ bool isExtendedID = false;
 // Variáveis para a tela de envio
 String sendId = "18FEEF00";
 String sendFrame[8] = {"10", "20", "30", "40", "50", "60", "70", "80"};
+String sendInterval = "1000";
 
 // Variável para rastrear o campo de entrada ativo
-enum ActiveInput { NONE, ID, FRAME_BYTE };
+enum ActiveInput { NONE, ID, FRAME_BYTE, TEMPO };
 ActiveInput activeInput = NONE;
 int activeFrameByte = -1; // 0-7 para o byte do frame
 
@@ -91,6 +92,7 @@ void handleTouch();
 void saveConfig();
 void loadConfig();
 void processSerialData(String serialData);
+void sendCanFrameSerial();
 void drawButton(int x, int y, int w, int h, const char* label, uint16_t bgColor, uint16_t borderColor, uint8_t textSize = 2);
 
 void setup() {
@@ -108,11 +110,24 @@ void setup() {
 
   loadConfig();
   
-  // Dados simulados para teste do display
+  // Dados simulados para preencher a tela principal
   canMessages[0] = {0x18FEEF00, {0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80}, 8, true};
-  canMessages[1] = {0x18FEEF01, {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}, 6, true};
-  canMessages[2] = {0x123, {0x01, 0x02, 0x03, 0x04}, 4, false};
-  messageCount = 3;
+  canMessages[1] = {0x123, {0xAA, 0xBB, 0xCC, 0xDD}, 4, false};
+  canMessages[2] = {0x456, {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}, 8, false};
+  canMessages[3] = {0x18FEF000, {0x01}, 1, true};
+  canMessages[4] = {0x789, {0x11, 0x22, 0x33, 0x44, 0x55}, 5, false};
+  canMessages[5] = {0x1000, {0xEE, 0xFF, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06}, 8, false};
+  canMessages[6] = {0x18FEEB00, {0x1A, 0x2B, 0x3C, 0x4D, 0x5E, 0x6F}, 6, true};
+  canMessages[7] = {0x5A5A, {0x11, 0x22, 0x33, 0x44}, 4, false};
+  canMessages[8] = {0x12345678, {0x00, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70}, 8, true};
+  canMessages[9] = {0x100, {0x0A, 0x0B, 0x0C, 0x0D}, 4, false};
+  canMessages[10] = {0x18FF00, {0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}, 8, true};
+  canMessages[11] = {0x156, {0x01, 0x02, 0x03}, 3, false};
+  canMessages[12] = {0x12345, {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}, 6, false};
+  canMessages[13] = {0x18FFAA00, {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88}, 8, true};
+  canMessages[14] = {0x7AB, {0x11}, 1, false};
+  canMessages[15] = {0x18FFBB00, {0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27}, 8, true};
+  messageCount = 16;
   
   drawMainScreen();
 }
@@ -184,8 +199,8 @@ void drawHeader() {
   tft.setTextDatum(BC_DATUM); 
   tft.drawString("CAN BUS", tft.width() / 2, tft.height() - 5); 
   
-  drawButton(10, tft.height() - 40, 80, 30, "SEND", TFT_RED, TFT_WHITE);
-  drawButton(tft.width() - 90, tft.height() - 40, 80, 30, "SETUP", TFT_BLUE, TFT_WHITE);
+  drawButton(10, tft.height() - 40, 80, 30, "SEND", TFT_RED, TFT_WHITE, 2);
+  drawButton(tft.width() - 90, tft.height() - 40, 80, 30, "SETUP", TFT_BLUE, TFT_WHITE, 2);
 }
 
 void drawCanMessages() {
@@ -213,9 +228,11 @@ void drawCanMessages() {
     }
     frameData.toUpperCase();
     
-    String line = idString + "  " + frameData;
+    // Desenha o ID
+    tft.drawString(idString, 5, y); 
     
-    tft.drawString(line, 5, y); 
+    // Desenha o frame de dados em uma coordenada X fixa para alinhamento
+    tft.drawString(frameData, 90, y); 
     y += 10;
   }
 }
@@ -223,8 +240,8 @@ void drawCanMessages() {
 void drawSetupScreen() {
   tft.fillScreen(TFT_BLACK);
 
-  drawButton(10, tft.height() - 40, 80, 30, "Voltar", TFT_RED, TFT_WHITE);
-  drawButton(tft.width() - 90, tft.height() - 40, 80, 30, "Salvar", TFT_GREEN, TFT_WHITE);
+  drawButton(10, tft.height() - 40, 80, 30, "Voltar", TFT_RED, TFT_WHITE, 2);
+  drawButton(tft.width() - 90, tft.height() - 40, 80, 30, "Salvar", TFT_GREEN, TFT_WHITE, 2);
 
   tft.setTextSize(2);
   tft.setTextColor(TFT_WHITE);
@@ -257,17 +274,16 @@ void drawSendScreen() {
   tft.setTextSize(2);
   tft.setTextColor(TFT_WHITE);
   tft.setTextDatum(TL_DATUM);
-  tft.drawString("ID:", 10, 10);
   
+  tft.drawString("ID:", 10, 10);
   // Caixa de texto para o ID
   uint16_t idColor = (activeInput == ID) ? TFT_GREEN : TFT_WHITE;
-  tft.drawRect(50, 5, 200, 30, idColor);
+  tft.drawRect(50, 5, 120, 30, idColor);
   tft.setTextDatum(MC_DATUM);
-  tft.drawString(sendId, 150, 20);
+  tft.drawString(sendId, 110, 20);
 
   tft.setTextDatum(TL_DATUM);
   tft.drawString("Frame:", 10, 50);
-  
   // Caixas de texto para os 8 bytes do frame
   int xPos = 80;
   for (int i = 0; i < 8; i++) {
@@ -277,7 +293,16 @@ void drawSendScreen() {
     tft.drawString(sendFrame[i], xPos + 15, 60);
     xPos += 35;
   }
-
+  
+  // Novo campo de "Tempo"
+  tft.setTextSize(2);
+  tft.setTextDatum(TL_DATUM);
+  tft.drawString("Tempo:", 210, 100);
+  uint16_t tempoColor = (activeInput == TEMPO) ? TFT_GREEN : TFT_WHITE;
+  tft.drawRect(210, 125, 80, 30, tempoColor);
+  tft.setTextDatum(MC_DATUM);
+  tft.drawString(sendInterval, 250, 140);
+  
   drawButton(10, tft.height() - 40, 80, 30, "Voltar", TFT_RED, TFT_WHITE, 2);
   drawButton(tft.width() - 90, tft.height() - 40, 80, 30, "Enviar", TFT_GREEN, TFT_WHITE, 2);
 
@@ -334,7 +359,7 @@ void handleTouch() {
       }
       // Botão Enviar
       if (touch_x > tft.width() - 90 && touch_x < tft.width() - 10 && touch_y > tft.height() - 40 && touch_y < tft.height() - 10) {
-        Serial.println("Enviar mensagem CAN acionado!");
+        sendCanFrameSerial(); 
         currentScreen = MAIN_SCREEN;
         activeInput = NONE;
         drawMainScreen();
@@ -354,6 +379,11 @@ void handleTouch() {
         }
         xPos += 35;
       }
+      // Detecção de toque no campo TEMPO
+      if (touch_x > 210 && touch_x < 290 && touch_y > 125 && touch_y < 155) {
+        activeInput = TEMPO;
+        drawSendScreen();
+      }
       // Detecção de toque no teclado
       for (int i = 0; i < 18; i++) {
         if (touch_x > keys[i].x && touch_x < keys[i].x + keys[i].w &&
@@ -363,6 +393,7 @@ void handleTouch() {
           if (strcmp(keyLabel, "Bk") == 0) {
             if (activeInput == ID && sendId.length() > 0) sendId.remove(sendId.length() - 1);
             else if (activeInput == FRAME_BYTE && sendFrame[activeFrameByte].length() > 0) sendFrame[activeFrameByte].remove(sendFrame[activeFrameByte].length() - 1);
+            else if (activeInput == TEMPO && sendInterval.length() > 0) sendInterval.remove(sendInterval.length() - 1);
           } else if (strcmp(keyLabel, "En") == 0) {
             activeInput = NONE;
           } else {
@@ -370,6 +401,8 @@ void handleTouch() {
               if (sendId.length() < 8) sendId += keyLabel;
             } else if (activeInput == FRAME_BYTE) {
               if (sendFrame[activeFrameByte].length() < 2) sendFrame[activeFrameByte] += keyLabel;
+            } else if (activeInput == TEMPO) {
+              if (sendInterval.length() < 5) sendInterval += keyLabel;
             }
           }
           drawSendScreen();
@@ -381,6 +414,22 @@ void handleTouch() {
       delay(10);
     }
   }
+}
+
+// Nova função para enviar o frame CAN pela serial
+void sendCanFrameSerial() {
+    // Converte a string de ID para unsigned long
+    unsigned long id = strtoul(sendId.c_str(), NULL, 16);
+    
+    // Converte as strings de frame para bytes
+    unsigned char frameBytes[8];
+    for (int i = 0; i < 8; i++) {
+        frameBytes[i] = strtoul(sendFrame[i].c_str(), NULL, 16);
+    }
+    
+    // Envia o ID (4 bytes) e os dados do frame (8 bytes) pela serial
+    Serial.write((uint8_t*)&id, sizeof(id));
+    Serial.write(frameBytes, 8);
 }
 
 void saveConfig() {
