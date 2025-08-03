@@ -249,17 +249,17 @@ void drawSetupScreen() {
   tft.drawString("Velocidade CAN:", 10, 40);
   
   tft.drawRect(10, 70, 80, 30, (canSpeed == 125000) ? TFT_GREEN : TFT_WHITE);
-  tft.drawString("125k", 40, 80);
+  tft.drawString("125k", 35, 80);
   tft.drawRect(100, 70, 80, 30, (canSpeed == 250000) ? TFT_GREEN : TFT_WHITE);
-  tft.drawString("250k", 130, 80);
+  tft.drawString("250k", 125, 80);
   tft.drawRect(190, 70, 80, 30, (canSpeed == 500000) ? TFT_GREEN : TFT_WHITE);
-  tft.drawString("500k", 220, 80);
+  tft.drawString("500k", 215, 80);
 
   tft.drawString("Tipo de ID:", 10, 120);
   tft.drawRect(10, 150, 100, 30, (!isExtendedID) ? TFT_GREEN : TFT_WHITE);
-  tft.drawString("Standard", 60, 165);
+  tft.drawString("Std", 40, 157);
   tft.drawRect(120, 150, 100, 30, (isExtendedID) ? TFT_GREEN : TFT_WHITE);
-  tft.drawString("Extended", 170, 165);
+  tft.drawString("Ext", 140, 157);
 }
 
 void drawKeyboard() {
