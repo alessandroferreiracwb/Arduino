@@ -39,9 +39,28 @@ long canSpeed = 250000;
 bool isExtendedID = false;
 
 // Variáveis para a tela de envio
-unsigned long sendId = 0x123;
-String sendFrame = "00:00:00:00:00:00:00:00";
-int sendInterval = 1000;
+String sendId = "18FEEF00";
+String sendFrame[8] = {"10", "20", "30", "40", "50", "60", "70", "80"};
+
+// Variável para rastrear o campo de entrada ativo
+enum ActiveInput { NONE, ID, FRAME_BYTE };
+ActiveInput activeInput = NONE;
+int activeFrameByte = -1; // 0-7 para o byte do frame
+
+// Estrutura para as teclas do teclado virtual
+struct Key {
+    int x, y, w, h;
+    char label[4];
+};
+
+// Layout do teclado hexadecimal redimensionado e movido
+Key keys[18] = {
+    {10, 100, 30, 20, "7"}, {50, 100, 30, 20, "8"}, {90, 100, 30, 20, "9"}, {130, 100, 30, 20, "A"}, {170, 100, 30, 20, "B"},
+    {10, 125, 30, 20, "4"}, {50, 125, 30, 20, "5"}, {90, 125, 30, 20, "6"}, {130, 125, 30, 20, "C"}, {170, 125, 30, 20, "D"},
+    {10, 150, 30, 20, "1"}, {50, 150, 30, 20, "2"}, {90, 150, 30, 20, "3"}, {130, 150, 30, 20, "E"}, {170, 150, 30, 20, "F"},
+    {10, 175, 30, 20, "0"}, {50, 175, 30, 20, "Bk"}, {90, 175, 30, 20, "En"}
+};
+
 
 // Mapeamento da velocidade é mantido para fins de UI
 long getCanSpeedCode(long speed) {
@@ -72,7 +91,7 @@ void handleTouch();
 void saveConfig();
 void loadConfig();
 void processSerialData(String serialData);
-void drawButton(int x, int y, int w, int h, const char* label, uint16_t bgColor, uint16_t borderColor);
+void drawButton(int x, int y, int w, int h, const char* label, uint16_t bgColor, uint16_t borderColor, uint8_t textSize = 2);
 
 void setup() {
   Serial.begin(115200);
@@ -165,10 +184,7 @@ void drawHeader() {
   tft.setTextDatum(BC_DATUM); 
   tft.drawString("CAN BUS", tft.width() / 2, tft.height() - 5); 
   
-  // Botão SEND no canto inferior esquerdo
   drawButton(10, tft.height() - 40, 80, 30, "SEND", TFT_RED, TFT_WHITE);
-
-  // Botão SETUP no canto inferior direito
   drawButton(tft.width() - 90, tft.height() - 40, 80, 30, "SETUP", TFT_BLUE, TFT_WHITE);
 }
 
@@ -216,32 +232,56 @@ void drawSetupScreen() {
   tft.drawString("Velocidade CAN:", 10, 40);
   
   tft.drawRect(10, 70, 80, 30, (canSpeed == 125000) ? TFT_GREEN : TFT_WHITE);
-  tft.drawString("125k", 40, 80); // <-- Ajustado 10px para a esquerda, 5px para cima
+  tft.drawString("125k", 40, 80);
   tft.drawRect(100, 70, 80, 30, (canSpeed == 250000) ? TFT_GREEN : TFT_WHITE);
-  tft.drawString("250k", 130, 80); // <-- Ajustado 10px para a esquerda, 5px para cima
+  tft.drawString("250k", 130, 80);
   tft.drawRect(190, 70, 80, 30, (canSpeed == 500000) ? TFT_GREEN : TFT_WHITE);
-  tft.drawString("500k", 220, 80); // <-- Ajustado 10px para a esquerda, 5px para cima
+  tft.drawString("500k", 220, 80);
 
   tft.drawString("Tipo de ID:", 10, 120);
   tft.drawRect(10, 150, 100, 30, (!isExtendedID) ? TFT_GREEN : TFT_WHITE);
-  tft.drawString("Std", 50, 160); // <-- Ajustado 10px para a esquerda, 5px para cima
+  tft.drawString("Standard", 60, 165);
   tft.drawRect(120, 150, 100, 30, (isExtendedID) ? TFT_GREEN : TFT_WHITE);
-  tft.drawString("Ext", 160, 160); // <-- Ajustado 10px para a esquerda, 5px para cima
+  tft.drawString("Extended", 170, 165);
+}
+
+void drawKeyboard() {
+  for (int i = 0; i < 18; i++) {
+    drawButton(keys[i].x, keys[i].y, keys[i].w, keys[i].h, keys[i].label, TFT_DARKGREY, TFT_WHITE, 1);
+  }
 }
 
 void drawSendScreen() {
   tft.fillScreen(TFT_BLACK);
-
-  drawButton(10, tft.height() - 40, 80, 30, "Voltar", TFT_RED, TFT_WHITE);
-  drawButton(tft.width() - 90, tft.height() - 40, 80, 30, "Enviar", TFT_GREEN, TFT_WHITE);
-
+  
   tft.setTextSize(2);
   tft.setTextColor(TFT_WHITE);
   tft.setTextDatum(TL_DATUM);
+  tft.drawString("ID:", 10, 10);
   
-  tft.drawString("ID:", 10, 40);
-  tft.drawString("Frame:", 10, 80);
-  tft.drawString("Intervalo (ms):", 10, 120);
+  // Caixa de texto para o ID
+  uint16_t idColor = (activeInput == ID) ? TFT_GREEN : TFT_WHITE;
+  tft.drawRect(50, 5, 200, 30, idColor);
+  tft.setTextDatum(MC_DATUM);
+  tft.drawString(sendId, 150, 20);
+
+  tft.setTextDatum(TL_DATUM);
+  tft.drawString("Frame:", 10, 50);
+  
+  // Caixas de texto para os 8 bytes do frame
+  int xPos = 80;
+  for (int i = 0; i < 8; i++) {
+    uint16_t color = (activeInput == FRAME_BYTE && activeFrameByte == i) ? TFT_GREEN : TFT_WHITE;
+    tft.drawRect(xPos, 45, 30, 30, color);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString(sendFrame[i], xPos + 15, 60);
+    xPos += 35;
+  }
+
+  drawButton(10, tft.height() - 40, 80, 30, "Voltar", TFT_RED, TFT_WHITE, 2);
+  drawButton(tft.width() - 90, tft.height() - 40, 80, 30, "Enviar", TFT_GREEN, TFT_WHITE, 2);
+
+  drawKeyboard();
 }
 
 // --- Funções de Lógica ---
@@ -251,18 +291,12 @@ void handleTouch() {
     uint16_t touch_x = map(p.x, touchMinX, touchMaxX, 0, tft.width());
     uint16_t touch_y = map(p.y, touchMinY, touchMaxY, 0, tft.height());
 
-    Serial.print("Touch Mapped: X=");
-    Serial.print(touch_x);
-    Serial.print(", Y=");
-    Serial.println(touch_y);
-
     if (currentScreen == MAIN_SCREEN) {
-      // Botão SEND
       if (touch_x > 10 && touch_x < 90 && touch_y > tft.height() - 40 && touch_y < tft.height() - 10) {
         currentScreen = SEND_SCREEN;
+        activeInput = NONE;
         drawSendScreen();
       }
-      // Botão SETUP
       if (touch_x > tft.width() - 90 && touch_x < tft.width() - 10 && touch_y > tft.height() - 40 && touch_y < tft.height() - 10) {
         currentScreen = SETUP_SCREEN;
         drawSetupScreen();
@@ -295,14 +329,52 @@ void handleTouch() {
       // Botão Voltar
       if (touch_x > 10 && touch_x < 90 && touch_y > tft.height() - 40 && touch_y < tft.height() - 10) {
         currentScreen = MAIN_SCREEN;
+        activeInput = NONE;
         drawMainScreen();
       }
       // Botão Enviar
       if (touch_x > tft.width() - 90 && touch_x < tft.width() - 10 && touch_y > tft.height() - 40 && touch_y < tft.height() - 10) {
-        // Implementar a lógica de envio aqui
         Serial.println("Enviar mensagem CAN acionado!");
         currentScreen = MAIN_SCREEN;
+        activeInput = NONE;
         drawMainScreen();
+      }
+      // Detecção de toque nos campos de entrada
+      if (touch_x > 50 && touch_x < 250 && touch_y > 5 && touch_y < 35) {
+        activeInput = ID;
+        drawSendScreen();
+      }
+      int xPos = 80;
+      for (int i = 0; i < 8; i++) {
+        if (touch_x > xPos && touch_x < xPos + 30 && touch_y > 45 && touch_y < 75) {
+          activeInput = FRAME_BYTE;
+          activeFrameByte = i;
+          drawSendScreen();
+          break;
+        }
+        xPos += 35;
+      }
+      // Detecção de toque no teclado
+      for (int i = 0; i < 18; i++) {
+        if (touch_x > keys[i].x && touch_x < keys[i].x + keys[i].w &&
+            touch_y > keys[i].y && touch_y < keys[i].y + keys[i].h) {
+          char keyLabel[4];
+          strcpy(keyLabel, keys[i].label);
+          if (strcmp(keyLabel, "Bk") == 0) {
+            if (activeInput == ID && sendId.length() > 0) sendId.remove(sendId.length() - 1);
+            else if (activeInput == FRAME_BYTE && sendFrame[activeFrameByte].length() > 0) sendFrame[activeFrameByte].remove(sendFrame[activeFrameByte].length() - 1);
+          } else if (strcmp(keyLabel, "En") == 0) {
+            activeInput = NONE;
+          } else {
+            if (activeInput == ID) {
+              if (sendId.length() < 8) sendId += keyLabel;
+            } else if (activeInput == FRAME_BYTE) {
+              if (sendFrame[activeFrameByte].length() < 2) sendFrame[activeFrameByte] += keyLabel;
+            }
+          }
+          drawSendScreen();
+          break;
+        }
       }
     }
     while (ts.touched()) {
@@ -327,10 +399,11 @@ void loadConfig() {
   Serial.println("Configuracoes carregadas.");
 }
 
-void drawButton(int x, int y, int w, int h, const char* label, uint16_t bgColor, uint16_t borderColor) {
+void drawButton(int x, int y, int w, int h, const char* label, uint16_t bgColor, uint16_t borderColor, uint8_t textSize) {
   tft.fillRect(x, y, w, h, bgColor);
   tft.drawRect(x, y, w, h, borderColor);
   tft.setTextColor(TFT_WHITE);
   tft.setTextDatum(MC_DATUM); 
+  tft.setTextSize(textSize);
   tft.drawString(label, x + w / 2, y + h / 2);
 }
