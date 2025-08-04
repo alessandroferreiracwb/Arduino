@@ -55,14 +55,14 @@ const char* FIRMWARE_VERSION = "v1.0.0";
 
 // Definição de botões fixos
 Button menuButton = {
-  .x = 10,  // <--- Canto inferior esquerdo
-  .y = SCREEN_HEIGHT - 60, // <--- Canto inferior esquerdo
-  .width = 60, // <--- ALTERADO: Mesma largura do botão de voltar
-  .height = 40,  // <--- ALTERADO: Mesma altura do botão de voltar
-  .text = "", // <--- ALTERADO: Sem texto, como o botão de voltar
+  .x = 5,  // <--- Canto inferior esquerdo
+  .y = SCREEN_HEIGHT - 34, // <--- Canto inferior esquerdo
+  .width = 80, // <--- Largura do botão
+  .height = 40,  // <--- Altura do botão
+  .text = "SETUP",
   .color = TFT_BLUE,
-  .textColor = TFT_WHITE,
-  .textSize = FONT_SIZE // Usaremos o drawButton para desenhar o triângulo
+  .textColor = TFT_WHITE, // Cor do texto agora é branco
+  .textSize = 1
 };
 
 

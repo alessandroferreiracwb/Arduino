@@ -3,13 +3,18 @@
 
 // --- Draw the main screen ---
 void drawMainScreen() {
-  tft.fillScreen(TFT_BLACK); // Fundo preto
+  tft.fillScreen(TFT_BLACK); // Fundo preto para a tela toda
 
   // --- Área do Topo: Data, Hora, Status Wi-Fi e MQTT ---
+  // Variáveis de posicionamento para o topo
+  int top_y_line1 = 5;  // Linha para a hora e status Wi-Fi
+  int top_y_line2 = 20; // Linha para a data e status MQTT
+  int text_start_x = 5;
+
   if (WiFi.status() == WL_CONNECTED) {
     timeClient.update();
     tft.setTextSize(1);
-    tft.setTextColor(TFT_WHITE);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK); // Texto branco com fundo preto
     time_t epochTime = timeClient.getEpochTime();
     struct tm *ptm = gmtime (&epochTime);
     char dateBuffer[11];
@@ -19,7 +24,7 @@ void drawMainScreen() {
 
     // Linha 1: Hora e status do Wi-Fi
     tft.setTextDatum(TL_DATUM);
-    tft.drawString(formattedTime, 5, 5, 1);
+    tft.drawString(formattedTime, text_start_x, top_y_line1, 1);
     String wifiStatusText = "";
     uint16_t wifiStatusColor = TFT_WHITE;
     switch(currentWifiStatus) {
@@ -28,13 +33,13 @@ void drawMainScreen() {
       case WIFI_CONNECTED_OK: wifiStatusText = "Conectado"; wifiStatusColor = TFT_GREEN; break;
     }
     tft.setTextColor(wifiStatusColor, TFT_BLACK);
-    tft.setTextDatum(TR_DATUM); // Alinha no canto superior direito para o texto de status
-    tft.drawString("WiFi: " + wifiStatusText, SCREEN_WIDTH - 5, 5, 1);
+    tft.setTextDatum(TR_DATUM); // Alinha no canto superior direito
+    tft.drawString("WiFi: " + wifiStatusText, SCREEN_WIDTH - 5, top_y_line1, 1);
     tft.setTextDatum(TL_DATUM);
 
     // Linha 2: Data e status do MQTT
-    tft.setTextColor(TFT_WHITE);
-    tft.drawString(dateString, 5, 20, 1);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.drawString(dateString, text_start_x, top_y_line2, 1);
     String mqttStatusText = "";
     uint16_t mqttStatusColor = TFT_WHITE;
     switch (currentMqttStatus) {
@@ -43,41 +48,49 @@ void drawMainScreen() {
       case APP_MQTT_CONNECTING: mqttStatusText += "Conectando..."; mqttStatusColor = TFT_ORANGE; break;
     }
     tft.setTextColor(mqttStatusColor, TFT_BLACK);
-    tft.setTextDatum(TR_DATUM); // Alinha no canto superior direito para o texto de status
-    tft.drawString("MQTT: " + mqttStatusText, SCREEN_WIDTH - 5, 20, 1);
+    tft.setTextDatum(TR_DATUM); // Alinha no canto superior direito
+    tft.drawString("MQTT: " + mqttStatusText, SCREEN_WIDTH - 5, top_y_line2, 1);
     tft.setTextDatum(TL_DATUM);
 
   } else {
     // Se desconectado
     tft.setTextSize(1);
-    tft.setTextColor(TFT_RED);
+    tft.setTextColor(TFT_RED, TFT_BLACK);
     tft.drawCentreString("Wi-Fi: Desconectado", SCREEN_WIDTH/2, 10, 1);
   }
 
   // Título "PHARMALOG"
   tft.setTextSize(2);
-  tft.setTextColor(TFT_SKYBLUE);
+  tft.setTextColor(TFT_SKYBLUE, TFT_BLACK);
   tft.drawCentreString("PHARMALOG", SCREEN_WIDTH / 2, SCREEN_HEIGHT/2 - 60, 2);
 
   // Área para Temperatura e Umidade
   tft.setTextSize(FONT_SIZE_LARGE);
-  tft.setTextColor(TFT_WHITE);
-
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  
   int text_offset_y = (75 - (tft.fontHeight(FONT_SIZE_LARGE) * 2 + 5)) / 2;
   if (text_offset_y < 0) text_offset_y = 0;
-  
+
   String tempDisplay = isnan(temperature) ? "XX C" : String(temperature, 1) + " C";
-  tft.drawCentreString("Temp.: " + tempDisplay, SCREEN_WIDTH / 2, 60 + text_offset_y, 2);
+  tft.drawCentreString("Temp.: " + tempDisplay, SCREEN_WIDTH / 2, 60 + text_offset_y, 1);
 
   String humDisplay = isnan(humidity) ? "XX %" : String(humidity, 0) + " %";
-  tft.drawCentreString("Umid.: " + humDisplay, SCREEN_WIDTH / 2, 90 + text_offset_y + tft.fontHeight(FONT_SIZE_LARGE) + 5, 2);
+  tft.drawCentreString("Umid.: " + humDisplay, SCREEN_WIDTH / 2, 90 + text_offset_y + tft.fontHeight(FONT_SIZE_LARGE) + 5, 1);
 
+  // --- Botão MENU (Canto Inferior Esquerdo) ---
   drawButton(menuButton);
-  tft.drawRect(menuButton.x - 1, menuButton.y - 1, menuButton.width + 2, menuButton.height + 2, TFT_WHITE);
-  tft.drawRect(menuButton.x, menuButton.y, menuButton.width, menuButton.height, TFT_WHITE);
-  tft.fillRect(menuButton.x + 2, menuButton.y + 2, menuButton.width - 4, menuButton.height - 4, TFT_BLUE);
-  tft.setTextColor(TFT_WHITE);
-  tft.drawCentreString(menuButton.text, menuButton.x + menuButton.width / 2, menuButton.y + menuButton.height / 2, menuButton.textSize);
+  tft.drawRect(menuButton.x, menuButton.y, menuButton.width, menuButton.height, TFT_WHITE); // Borda branca
+  tft.fillRect(menuButton.x, menuButton.y, menuButton.width, menuButton.height, TFT_BLUE); // Fundo azul
+  
+  // Desenha o ícone de menu (3 barras) no centro do botão
+  int icon_x = menuButton.x + menuButton.width / 2;
+  int icon_y = menuButton.y + menuButton.height / 2;
+  int bar_width = 30;
+  int bar_height = 4;
+  int bar_spacing = 6;
+  tft.fillRect(icon_x - bar_width / 2, icon_y - bar_height * 1.5, bar_width, bar_height, TFT_WHITE);
+  tft.fillRect(icon_x - bar_width / 2, icon_y - bar_height / 2, bar_width, bar_height, TFT_WHITE);
+  tft.fillRect(icon_x - bar_width / 2, icon_y + bar_height / 2, bar_width, bar_height, TFT_WHITE);
 
 }
 
@@ -228,8 +241,8 @@ void drawMqttConfigDisplayScreen() {
   // --- Campo Caminho Servidor MQTT ---
   tft.setTextSize(1);
   tft.setTextColor(TFT_WHITE);
-  tft.drawString("Servidor:", text_start_x, current_y, 1); // Título do campo
-  current_y += tft.fontHeight(1) + 2; // Espaçamento entre título e caixa de texto
+  tft.drawString("Servidor:", text_start_x, current_y, 1);
+  current_y += tft.fontHeight(1) + 2;
 
   int text_display_y_mqtt_path = current_y;
   tft.fillRect(text_start_x, text_display_y_mqtt_path, field_display_width, TEXT_INPUT_HEIGHT, TFT_WHITE);
@@ -250,7 +263,7 @@ void drawMqttConfigDisplayScreen() {
   mqttPathEditButton.x = edit_button_x_offset;
   mqttPathEditButton.y = text_display_y_mqtt_path + (TEXT_INPUT_HEIGHT - mqttPathEditButton.height) / 2;
   drawButton(mqttPathEditButton);
-  current_y += TEXT_INPUT_HEIGHT + 5; // Espaçamento entre caixa de texto e próximo título (PADRONIZADO)
+  current_y += TEXT_INPUT_HEIGHT + 5;
 
   // --- Campo Usuário MQTT ---
   tft.setTextSize(1);
