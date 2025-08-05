@@ -51,9 +51,9 @@ long canSpeed = 250000;
 bool isExtendedID = false;
 
 // Variáveis para a tela de envio
-String sendId = "18FEEF00";
-String sendFrame[8] = {"10", "20", "30", "40", "50", "60", "70", "80"};
-String sendInterval = "1000";
+String sendId = "18F00001";
+String sendFrame[8] = {"FF", "FF", "FF", "FF", "FF", "FF", "FF", "FF"};
+String sendInterval = "100";
 
 // Variável para rastrear o campo de entrada ativo
 enum ActiveInput { NONE, ID, FRAME_BYTE, TEMPO };
@@ -330,9 +330,9 @@ void drawSetupScreen() {
   tft.drawString("500k", 220, 80);
   tft.drawString("Tipo de ID:", 10, 120);
   tft.drawRect(10, 150, 100, 30, (!isExtendedID) ? TFT_GREEN : TFT_WHITE);
-  tft.drawString("Standard", 60, 165);
+  tft.drawString("Std", 50, 160);
   tft.drawRect(120, 150, 100, 30, (isExtendedID) ? TFT_GREEN : TFT_WHITE);
-  tft.drawString("Extended", 170, 165);
+  tft.drawString("Ext", 160, 160);
 }
 
 void drawKeyboard() {
