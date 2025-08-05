@@ -103,7 +103,8 @@ void drawButton(int x, int y, int w, int h, const char* label, uint16_t bgColor,
 int findMessageIndex(unsigned long id); // Declara a função que encontra o índice de uma mensagem pelo seu ID
 void drawSingleCanMessage(int index, int yOffset); // Declara a função que desenha uma única mensagem CAN
 void clearCanMessages(); // Declara a função para limpar as mensagens CAN
-//void sendLedCommand(bool state);
+void sendLedCommand(bool state);
+void sendCanSpeedCommand(long speed);  // Protótipo da nova função Velocidade da CAN
 
 void setup() {
     Serial.begin(115200);   // Inicia a comunicação serial para debug, com taxa de 115200 bps
@@ -406,13 +407,16 @@ void handleTouch() {
                     currentScreen = MAIN_SCREEN; // ...muda para a tela principal
                     drawMainScreen();            // ...e desenha a tela principal
                 } else if (touch_x > 10 && touch_x < 90 && touch_y > 70 && touch_y < 100) { // Se o botão "125k" for tocado...
-                    canSpeed = 125000;           // ...define a velocidade CAN
+                    canSpeed = 125000;
+                    sendCanSpeedCommand(canSpeed); // NOVO: Envia o comando para 125k
                     drawSetupScreen();           // ...e redesenha a tela
                 } else if (touch_x > 100 && touch_x < 180 && touch_y > 70 && touch_y < 100) { // Se o botão "250k" for tocado...
                     canSpeed = 250000;
+                    sendCanSpeedCommand(canSpeed); // NOVO: Envia o comando para 250k
                     drawSetupScreen();
                 } else if (touch_x > 190 && touch_x < 270 && touch_y > 70 && touch_y < 100) { // Se o botão "500k" for tocado...
                     canSpeed = 500000;
+                    sendCanSpeedCommand(canSpeed); // NOVO: Envia o comando para 500k
                     drawSetupScreen();
                 } else if (touch_x > 10 && touch_x < 110 && touch_y > 150 && touch_y < 180) { // Se o botão "Std" for tocado...
                     isExtendedID = false;        // ...define o tipo de ID como padrão
@@ -420,7 +424,7 @@ void handleTouch() {
                 } else if (touch_x > 120 && touch_x < 220 && touch_y > 150 && touch_y < 180) { // Se o botão "Ext" for tocado...
                     isExtendedID = true;         // ...define o tipo de ID como estendido
                     drawSetupScreen();
-                    //sendLedCommand(true);  // NOVO: Envia comando para ligar o LED (Ext)
+                    sendLedCommand(true);  // NOVO: Envia comando para ligar o LED (Ext)
                 }
             } else if (currentScreen == SEND_SCREEN) { // Se a tela atual for a de envio...
                 if (touch_x > 10 && touch_x < 90 && touch_y > tft.height() - 40 && touch_y < tft.height() - 10) { // Se o botão "Voltar" for tocado...
@@ -531,7 +535,7 @@ void clearCanMessages() {
     messageCount = 0; // Reseta o contador de mensagens para zero
     drawMainScreen(); // Redesenha a tela principal, que agora não terá mensagens para exibir
 }
-/*
+
 void sendLedCommand(bool state) {
     if (client.connected()) {
         String command = "LED_D2 ";
@@ -543,5 +547,17 @@ void sendLedCommand(bool state) {
         Serial.println("Wi-Fi desconectado, não foi possível enviar o comando para o LED.");
     }
 }
-*/
+
+// Implementação da nova função Velocidade da CAN
+void sendCanSpeedCommand(long speed) {
+    if (client.connected()) {
+        String command = "CAN_SPEED " + String(speed);
+        client.println(command);
+        Serial.print("Comando de velocidade CAN enviado: ");
+        Serial.println(command);
+    } else {
+        Serial.println("Wi-Fi desconectado, não foi possível enviar o comando de velocidade.");
+    }
+}
+
 // fim
