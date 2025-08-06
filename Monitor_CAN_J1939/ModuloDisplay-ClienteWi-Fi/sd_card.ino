@@ -532,7 +532,17 @@ void handleTouch() {
                 delay(10);
             }
         } else {
-            // Ignora toques se não estiver conectado
+            // Se não estiver conectado, espera entrar no setup
+            handleTouch();
+            if (ts.touched()) {
+                TS_Point p = ts.getPoint();
+                uint16_t touch_x = map(p.x, touchMinX, touchMaxX, 0, tft.width());
+                uint16_t touch_y = map(p.y, touchMinY, touchMaxY, 0, tft.height());
+            if (touch_x > 10 && touch_x < 110 && touch_y > 150 && touch_y < 180) {
+                currentMode = REMOTE_WIFI;
+                drawSetupScreen();
+            } 
+            }
         }
     }
 }
