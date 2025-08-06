@@ -68,6 +68,10 @@ enum ActiveInput { NONE, ID, FRAME_BYTE, TEMPO };
 ActiveInput activeInput = NONE;
 int activeFrameByte = -1;
 
+// Definir os Modos de Operação
+enum CanMode { REMOTE_WIFI, NATIVE_CAN };
+CanMode currentMode = REMOTE_WIFI; // O modo padrão
+
 // Estrutura para as teclas do teclado virtual
 struct Key {
     int x, y, w, h;
@@ -182,11 +186,14 @@ void checkWifiConnection() {
 
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("WiFi desconectado. Tentando reconectar...");
+        
         tft.fillScreen(TFT_BLACK);
         tft.setTextSize(2);
         tft.setTextColor(TFT_WHITE);
-        tft.setTextDatum(MC_DATUM);
+        tft.setTextDatum(MC_DATUM);        
         tft.drawString("TENTANDO CONECTAR...", tft.width() / 2, tft.height() / 2);
+        tft.drawString("Modo de Leitura:", 150, 150);
+        drawButton(110, 180, 100, 30, "SETUP", (currentMode == REMOTE_WIFI) ? TFT_BLACK : TFT_WHITE, TFT_WHITE, 2);        
         WiFi.begin(ssid, password);
         return;
     }
@@ -212,7 +219,8 @@ void drawConnectingScreen() {
     tft.setTextDatum(MC_DATUM);
     tft.drawString("CONEXAO PERDIDA", tft.width() / 2, tft.height() / 2 - 20);
     tft.setTextColor(TFT_WHITE);
-    tft.drawString("TENTANDO RECONECTAR...", tft.width() / 2, tft.height() / 2 + 10);
+    tft.drawString("MONITOR CAN INICIANDO...", tft.width() / 2, tft.height() / 2 + 10);   
+    
 }
 
 // --- Funções de Lógica e Desenho da Interface ---
@@ -353,18 +361,21 @@ void drawSetupScreen() {
     tft.setTextSize(2);
     tft.setTextColor(TFT_WHITE);
     tft.setTextDatum(TL_DATUM);
-    tft.drawString("Velocidade CAN:", 10, 40);
-    tft.drawRect(10, 70, 80, 30, (canSpeed == 125000) ? TFT_GREEN : TFT_WHITE);
-    tft.drawString("125k", 40, 80);
-    tft.drawRect(100, 70, 80, 30, (canSpeed == 250000) ? TFT_GREEN : TFT_WHITE);
-    tft.drawString("250k", 130, 80);
-    tft.drawRect(190, 70, 80, 30, (canSpeed == 500000) ? TFT_GREEN : TFT_WHITE);
-    tft.drawString("500k", 220, 80);
-    tft.drawString("Tipo de ID:", 10, 120);
-    tft.drawRect(10, 150, 100, 30, (!isExtendedID) ? TFT_GREEN : TFT_WHITE);
-    tft.drawString("Std", 50, 160);
-    tft.drawRect(120, 150, 100, 30, (isExtendedID) ? TFT_GREEN : TFT_WHITE);
-    tft.drawString("Ext", 160, 160);
+    tft.drawString("Velocidade CAN:", 10, 10);
+    tft.drawRect(10, 30, 80, 30, (canSpeed == 125000) ? TFT_GREEN : TFT_WHITE);
+    tft.drawString("125k", 38, 35);
+    tft.drawRect(100, 30, 80, 30, (canSpeed == 250000) ? TFT_GREEN : TFT_WHITE);
+    tft.drawString("250k", 130, 35);
+    tft.drawRect(190, 30, 80, 30, (canSpeed == 500000) ? TFT_GREEN : TFT_WHITE);
+    tft.drawString("500k", 220, 35);
+    tft.drawString("Tipo de ID:", 10, 70);
+    tft.drawRect(10, 92, 100, 30, (!isExtendedID) ? TFT_GREEN : TFT_WHITE);
+    tft.drawString("Std", 50, 100);
+    tft.drawRect(120, 92, 100, 30, (isExtendedID) ? TFT_GREEN : TFT_WHITE);
+    tft.drawString("Ext", 160, 100);
+    tft.drawString("Modo de Leitura:", 10, 135);
+    drawButton(10, 160, 100, 30, "Remoto", (currentMode == REMOTE_WIFI) ? TFT_GREEN : TFT_WHITE, TFT_WHITE, 2);
+    drawButton(120, 160, 100, 30, "Local", (currentMode == NATIVE_CAN) ? TFT_GREEN : TFT_WHITE, TFT_WHITE, 2);
 }
 
 void drawKeyboard() {
@@ -396,7 +407,7 @@ void drawSendScreen() {
     tft.setTextSize(2);
     tft.setTextDatum(TL_DATUM);
     tft.drawString("Tempo:", 210, 100);
-    uint16_t tempoColor = (activeInput == TEMPO) ? TFT_GREEN : TFT_WHITE;
+    uint16_t tempoColor = (activeInput == TEMPO) ? TFT_GREEN : TFT_WHITE;    
     tft.drawRect(210, 125, 80, 30, tempoColor);
     tft.setTextDatum(MC_DATUM);
     tft.drawString(sendInterval, 250, 140);
@@ -433,25 +444,34 @@ void handleTouch() {
                     saveConfig();
                     currentScreen = MAIN_SCREEN;
                     drawMainScreen();
-                } else if (touch_x > 10 && touch_x < 90 && touch_y > 70 && touch_y < 100) {
+                } else if (touch_x > 10 && touch_x < 90 && touch_y > 25 && touch_y < 55) {
                     canSpeed = 125000;
                     sendCanSpeedCommand(canSpeed);
                     drawSetupScreen();
-                } else if (touch_x > 100 && touch_x < 180 && touch_y > 70 && touch_y < 100) {
+                } else if (touch_x > 100 && touch_x < 180 && touch_y > 25 && touch_y < 55) {
                     canSpeed = 250000;
                     sendCanSpeedCommand(canSpeed);
                     drawSetupScreen();
-                } else if (touch_x > 190 && touch_x < 270 && touch_y > 70 && touch_y < 100) {
+                } else if (touch_x > 190 && touch_x < 270 && touch_y > 25 && touch_y < 55) {
                     canSpeed = 500000;
                     sendCanSpeedCommand(canSpeed);
                     drawSetupScreen();
-                } else if (touch_x > 10 && touch_x < 110 && touch_y > 150 && touch_y < 180) {
+                } else if (touch_x > 10 && touch_x < 110 && touch_y > 100 && touch_y < 130) {
                     isExtendedID = false;
                     drawSetupScreen();
-                } else if (touch_x > 120 && touch_x < 220 && touch_y > 150 && touch_y < 180) {
+                } else if (touch_x > 120 && touch_x < 220 && touch_y > 100 && touch_y < 130) {
                     isExtendedID = true;
                     drawSetupScreen();
                     sendLedCommand(true);
+                    /*
+                    drawButton(10, 160, 100, 30, "Remoto", (currentMode == REMOTE_WIFI) ? TFT_GREEN : TFT_WHITE, TFT_WHITE, 2);
+                    drawButton(120, 160, 100, 30, "Local", (currentMode == NATIVE_CAN) ? TFT_GREEN : TFT_WHITE, TFT_WHITE, 2);*/
+                } else if (touch_x > 10 && touch_x < 110 && touch_y > 160 && touch_y < 190) {
+                    currentMode = REMOTE_WIFI;
+                    drawSetupScreen();
+                } else if (touch_x > 120 && touch_x < 220 && touch_y > 160 && touch_y < 190) {
+                    currentMode = NATIVE_CAN;
+                    drawSetupScreen();
                 }
             } else if (currentScreen == SEND_SCREEN) {
                 if (touch_x > 10 && touch_x < 90 && touch_y > tft.height() - 40 && touch_y < tft.height() - 10) {
