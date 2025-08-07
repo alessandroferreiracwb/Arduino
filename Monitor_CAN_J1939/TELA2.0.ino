@@ -348,24 +348,24 @@ void drawSetupScreen() {
     drawButton(tft.width() - 90, tft.height() - 40, 80, 30, "Salvar", TFT_GREEN, TFT_WHITE, 2);
     
     // Novos botões para modo de conexão
-    drawButton(10, 130, 100, 30, "LOCAL", (!isRemoteMode) ? TFT_GREEN : TFT_WHITE, TFT_WHITE, 2);
-    drawButton(120, 130, 100, 30, "REMOTO", (isRemoteMode) ? TFT_GREEN : TFT_WHITE, TFT_WHITE, 2);
+    drawButton(10, 140, 100, 30, "LOCAL", (!isRemoteMode) ? TFT_GREEN : TFT_WHITE, TFT_WHITE, 2);
+    drawButton(120, 140, 100, 30, "REMOTO", (isRemoteMode) ? TFT_GREEN : TFT_WHITE, TFT_WHITE, 2);
 
     tft.setTextSize(2);
     tft.setTextColor(TFT_WHITE);
     tft.setTextDatum(TL_DATUM);
     tft.drawString("Velocidade CAN:", 10, 10);
-    tft.drawRect(10, 40, 80, 30, (canSpeed == 125000) ? TFT_GREEN : TFT_WHITE);
+    tft.drawRect(10, 37, 80, 30, (canSpeed == 125000) ? TFT_GREEN : TFT_WHITE);
     tft.drawString("125k", 40, 40);
-    tft.drawRect(100, 40, 80, 30, (canSpeed == 250000) ? TFT_GREEN : TFT_WHITE);
+    tft.drawRect(100, 37, 80, 30, (canSpeed == 250000) ? TFT_GREEN : TFT_WHITE);
     tft.drawString("250k", 130, 40);
-    tft.drawRect(190, 40, 80, 30, (canSpeed == 500000) ? TFT_GREEN : TFT_WHITE);
+    tft.drawRect(190, 37, 80, 30, (canSpeed == 500000) ? TFT_GREEN : TFT_WHITE);
     tft.drawString("500k", 220, 40);
-    tft.drawString("Tipo de ID:", 10, 120);
-    tft.drawRect(10, 150, 100, 30, (!isExtendedID) ? TFT_GREEN : TFT_WHITE);
-    tft.drawString("Std", 50, 80);
-    tft.drawRect(120, 150, 100, 30, (isExtendedID) ? TFT_GREEN : TFT_WHITE);
-    tft.drawString("Ext", 160, 80);
+    tft.drawString("Tipo de ID:", 10, 80);
+    tft.drawRect(10, 100, 100, 30, (!isExtendedID) ? TFT_GREEN : TFT_WHITE);
+    tft.drawString("Std", 50, 100);
+    tft.drawRect(120, 100, 100, 30, (isExtendedID) ? TFT_GREEN : TFT_WHITE);
+    tft.drawString("Ext", 160, 100);
 }
 
 void drawKeyboard() {
