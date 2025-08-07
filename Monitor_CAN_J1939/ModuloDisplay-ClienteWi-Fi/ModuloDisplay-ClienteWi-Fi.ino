@@ -1,63 +1,64 @@
-#include <SPI.h>            // Biblioteca para comunicação SPI
-#include <TFT_eSPI.h>       // Biblioteca do driver da tela TFT
-#include <Preferences.h>    // Biblioteca para salvar dados na memória flash
-#include <XPT2046_Touchscreen.h> // Biblioteca do driver do touchscreen
-#include <WiFi.h>           // Biblioteca para conexão Wi-Fi
+#include <SPI.h>
+#include <TFT_eSPI.h>
+#include <Preferences.h>
+#include <XPT2046_Touchscreen.h>
+#include <WiFi.h>
 
-// --- Credenciais e Configurações de Conexão Wi-Fi ---
-const char* ssid = "ESP_CAN";             // SSID da rede Wi-Fi
-const char* password = "admin123";        // Senha da rede Wi-Fi
-const char* serverIp = "192.168.4.1";     // Endereço IP do servidor (outro ESP32)
-const uint16_t port = 8080;               // Porta de comunicação do servidor
+// --- Credenciais da Rede Wi-Fi ---
+const char* ssid = "ESP_CAN";
+const char* password = "admin123";
+const char* serverIp = "192.168.4.1";
+const uint16_t port = 8080;
 
-WiFiClient client;                        // Objeto para gerenciar a conexão com o servidor
-bool isConnected = false;                 // Flag que indica se o cliente está conectado
-unsigned long lastConnectionAttempt = 0;  // Variável para controle do tempo de reconexão
-const long connectionInterval = 5000;     // Intervalo de 5 segundos para tentar reconectar
+WiFiClient client;
+bool isConnected = false;
+unsigned long lastConnectionAttempt = 0;
+const long connectionInterval = 5000;
 
-// --- Definições de Pinos e Calibração do Hardware ---
-#define TFT_CS 15      // Pino Chip Select (CS) para a tela TFT
-#define TFT_DC 2       // Pino Data/Command (DC) para a tela TFT
-#define TFT_RST -1     // Pino de Reset (RST) para a tela (-1 = não usado)
-#define TFT_MOSI 13    // Pino MOSI da SPI para a tela
-#define TFT_SCLK 14    // Pino SCLK da SPI para a tela
-#define TFT_MISO 12    // Pino MISO da SPI para a tela
+// --- Definições de Pinos e Calibração do seu hardware ---
+#define TFT_CS 15
+#define TFT_DC 2
+#define TFT_RST -1
+#define TFT_MOSI 13
+#define TFT_SCLK 14
+#define TFT_MISO 12
 
-// Pinos SPI do touchscreen
+// Pinos SPI do seu touch
 #define XPT2046_MOSI 32
 #define XPT2046_MISO 39
 #define XPT2046_CLK 25
 #define XPT2046_CS 33
 #define XPT2046_IRQ 36
 
-// Valores de calibração do touch (específicos para seu hardware)
+// Valores de calibração do seu touch
 int touchMinX = 451;
 int touchMaxX = 3598;
 int touchMinY = 600;
 int touchMaxY = 3579;
+// -----------------------------------------------------------
 
-TFT_eSPI tft = TFT_eSPI();                         // Cria objeto da tela
-SPIClass touchscreenSPI = SPIClass(VSPI);          // Cria objeto SPI para o touch
-XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);   // Cria objeto do touchscreen
+TFT_eSPI tft = TFT_eSPI();
+SPIClass touchscreenSPI = SPIClass(VSPI);
+XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
 
-// Variáveis de estado da interface
+// Variáveis de estado
 enum Screen { MAIN_SCREEN, SETUP_SCREEN, SEND_SCREEN, CONNECTING_SCREEN };
 Screen currentScreen = CONNECTING_SCREEN;
 
-// Variáveis para as configurações do CAN bus
-Preferences preferences;          // Objeto para salvar/carregar configurações
-long canSpeed = 250000;           // Velocidade padrão do CAN
-bool isExtendedID = false;        // Tipo de ID padrão
+// Variáveis para as configurações
+Preferences preferences;
+long canSpeed = 250000;
+bool isExtendedID = false;
 
 // Variáveis para a tela de envio
-String sendId = "18F00001";              // ID inicial para envio
-String sendFrame[8] = {"FF", "FF", "FF", "FF", "FF", "FF", "FF", "FF"}; // Bytes iniciais do frame
-String sendInterval = "100";             // Intervalo de envio padrão
+String sendId = "18F00001";
+String sendFrame[8] = {"FF", "FF", "FF", "FF", "FF", "FF", "FF", "FF"};
+String sendInterval = "100";
 
-// Variáveis para rastrear o campo de entrada ativo
+// Variável para rastrear o campo de entrada ativo
 enum ActiveInput { NONE, ID, FRAME_BYTE, TEMPO };
 ActiveInput activeInput = NONE;
-int activeFrameByte = -1; // Índice do byte do frame sendo editado
+int activeFrameByte = -1;
 
 // Estrutura para as teclas do teclado virtual
 struct Key {
@@ -65,7 +66,6 @@ struct Key {
     char label[4];
 };
 
-// Definição das posições e rótulos das teclas do teclado virtual
 Key keys[18] = {
     {10, 100, 30, 20, "7"}, {50, 100, 30, 20, "8"}, {90, 100, 30, 20, "9"}, {130, 100, 30, 20, "A"}, {170, 100, 30, 20, "B"},
     {10, 125, 30, 20, "4"}, {50, 125, 30, 20, "5"}, {90, 125, 30, 20, "6"}, {130, 125, 30, 20, "C"}, {170, 125, 30, 20, "D"},
@@ -80,9 +80,9 @@ struct CanMessage {
     unsigned char len;
     bool isExtended;
 };
-CanMessage canMessages[20]; // Array para armazenar as últimas 20 mensagens CAN
-int messageCount = 0;       // Contador de mensagens na lista
-int scrollPosition = 0;     // Posição de rolagem (não usada neste código)
+CanMessage canMessages[20];
+int messageCount = 0;
+int scrollPosition = 0;
 
 // Protótipos das funções
 void drawMainScreen();
@@ -105,38 +105,27 @@ void clearCanMessages();
 void sendLedCommand(bool state);
 void sendCanSpeedCommand(long speed);
 
-// --- Função de Configuração Inicial (setup) ---
-// Chamada apenas uma vez no início do programa
 void setup() {
-    Serial.begin(115200);   // Inicia comunicação serial para debug
-    SPI.begin();            // Inicia o bus SPI para a tela
-
-    tft.init();             // Inicializa a tela TFT
-    tft.setRotation(1);     // Define a rotação da tela
-    tft.fillScreen(TFT_BLACK); // Preenche a tela com preto
-
-    touchscreenSPI.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS); // Inicia o bus SPI para o touch
-    ts.begin(touchscreenSPI); // Inicializa o touchscreen
-    ts.setRotation(1);        // Define a rotação do touch
-
-    loadConfig();           // Carrega as configurações salvas na memória flash
-    setupWifi();            // Inicia a conexão Wi-Fi
-
-    drawConnectingScreen(); // Desenha a tela de conexão inicial
+    Serial.begin(115200);
+    SPI.begin();
+    tft.init();
+    tft.setRotation(1);
+    tft.fillScreen(TFT_BLACK);
+    touchscreenSPI.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
+    ts.begin(touchscreenSPI);
+    ts.setRotation(1);
+    loadConfig();
+    setupWifi();
+    drawConnectingScreen();
 }
 
-// --- Função de Loop Principal (loop) ---
-// Executa repetidamente enquanto o ESP32 estiver ligado
 void loop() {
-    checkWifiConnection();  // Verifica e gerencia a conexão Wi-Fi
-
+    checkWifiConnection();
     if (isConnected) {
-        handleTouch(); // Lida com toques na tela
-        
-        // Se estiver na tela principal e houver dados na conexão, processa a mensagem
+        handleTouch();
         if (currentScreen == MAIN_SCREEN && client.connected() && client.available()) {
-            String data = client.readStringUntil('\n'); // Lê a mensagem recebida
-            processWifiData(data); // Processa os dados
+            String data = client.readStringUntil('\n');
+            processWifiData(data);
         }
     }
 }
@@ -151,7 +140,6 @@ void setupWifi() {
 void checkWifiConnection() {
     if (isConnected) {
         if (!client.connected()) {
-            // Se a conexão com o servidor for perdida, redefine o estado para 'conectando'
             Serial.println("Conexao com o servidor perdida.");
             isConnected = false;
             currentScreen = CONNECTING_SCREEN;
@@ -171,7 +159,6 @@ void checkWifiConnection() {
     lastConnectionAttempt = millis();
 
     if (WiFi.status() != WL_CONNECTED) {
-        // Tenta reconectar o Wi-Fi se estiver desconectado
         Serial.println("WiFi desconectado. Tentando reconectar...");
         tft.fillScreen(TFT_BLACK);
         tft.setTextSize(2);
@@ -183,10 +170,8 @@ void checkWifiConnection() {
     }
 
     if (!client.connected()) {
-        // Tenta conectar ao servidor se o Wi-Fi estiver conectado mas o cliente não
         Serial.print("WiFi conectado. Tentando conectar ao servidor ");
         if (client.connect(serverIp, port)) {
-            // Conexão bem-sucedida
             Serial.println("Conectado ao servidor!");
             isConnected = true;
             currentScreen = MAIN_SCREEN;
@@ -208,22 +193,19 @@ void drawConnectingScreen() {
     tft.drawString("TENTANDO RECONECTAR...", tft.width() / 2, tft.height() / 2 + 10);
 }
 
-// --- Funções de Lógica e Desenho da Interface ---
-
-// Processa os dados recebidos via Wi-Fi (mensagens CAN)
+// --- Funções de Desenho e Lógica (restante do código) ---
 void processWifiData(String data) {
-    data.trim(); // Remove espaços em branco
+    data.trim();
     int spaceIndex = data.indexOf(' ');
     if (spaceIndex == -1) {
         return;
     }
     
-    // Extrai o ID e os dados do frame da mensagem
     String idString = data.substring(0, spaceIndex);
     String dataString = data.substring(spaceIndex + 1);
 
-    unsigned long id = strtoul(idString.c_str(), NULL, 16); // Converte ID para hexadecimal
-    int len = dataString.length() / 2; // Calcula o tamanho do frame
+    unsigned long id = strtoul(idString.c_str(), NULL, 16);
+    int len = dataString.length() / 2;
     unsigned char buf[8];
     
     if (len > 8) {
@@ -231,7 +213,6 @@ void processWifiData(String data) {
     }
     
     for(int i = 0; i < len; i++) {
-        // Converte cada byte da string para um número hexadecimal
         String byteString = dataString.substring(i * 2, i * 2 + 2);
         buf[i] = strtoul(byteString.c_str(), NULL, 16);
     }
@@ -239,10 +220,9 @@ void processWifiData(String data) {
     int messageIndex = findMessageIndex(id);
 
     if (messageIndex != -1) {
-        // Se o ID já existe, atualiza apenas os bytes que mudaram
         bool updated = false;
         unsigned char oldData[8];
-        memcpy(oldData, canMessages[messageIndex].data, canMessages[messageIndex].len); // Salva os dados antigos
+        memcpy(oldData, canMessages[messageIndex].data, canMessages[messageIndex].len);
 
         for(int i = 0; i < len; i++) {
             if (canMessages[messageIndex].data[i] != buf[i]) {
@@ -252,11 +232,9 @@ void processWifiData(String data) {
         }
         canMessages[messageIndex].len = len;
         if (updated) {
-            // Se houve atualização, redesenha a linha destacando as mudanças
             drawSingleCanMessage(messageIndex, messageIndex * 10 + 5, oldData);
         }
     } else {
-        // Se o ID é novo, adiciona uma nova mensagem à lista
         if (messageCount < 20) {
             canMessages[messageCount].id = id;
             canMessages[messageCount].len = len;
@@ -264,7 +242,6 @@ void processWifiData(String data) {
             memcpy(canMessages[messageCount].data, buf, len);
             messageCount++;
         } else {
-            // Se a lista está cheia, remove a mensagem mais antiga e adiciona a nova no final
             for (int i = 0; i < 19; i++) {
                 canMessages[i] = canMessages[i+1];
             }
@@ -273,11 +250,10 @@ void processWifiData(String data) {
             canMessages[19].isExtended = (idString.length() > 3);
             memcpy(canMessages[19].data, buf, len);
         }
-        drawCanMessages(); // Redesenha a tela inteira para incluir a nova mensagem
+        drawCanMessages();
     }
 }
 
-// Procura por um ID de mensagem na lista e retorna o índice
 int findMessageIndex(unsigned long id) {
     for (int i = 0; i < messageCount; i++) {
         if (canMessages[i].id == id) {
@@ -287,25 +263,22 @@ int findMessageIndex(unsigned long id) {
     return -1;
 }
 
-// Desenha a tela principal (cabeçalho e mensagens)
 void drawMainScreen() {
     tft.fillScreen(TFT_BLACK);
     drawHeader();
     drawCanMessages();
 }
 
-// Desenha o cabeçalho com os botões "SEND", "LIMPA" e "SETUP"
 void drawHeader() {
     tft.fillRect(0, 0, tft.width(), tft.height(), TFT_BLACK);
     tft.setTextSize(2);
     tft.setTextColor(TFT_WHITE);
     tft.setTextDatum(BC_DATUM);
     drawButton(10, tft.height() - 40, 80, 30, "SEND", TFT_GREEN, TFT_WHITE, 2);
-    drawButton(tft.width() - 200, tft.height() - 40, 80, 30, "LIMPA", TFT_YELLOW, TFT_WHITE, 2);
+    drawButton(tft.width() - 200, tft.height() - 40, 80, 30, "CLEAR", TFT_YELLOW, TFT_WHITE, 2);
     drawButton(tft.width() - 90, tft.height() - 40, 80, 30, "SETUP", TFT_BLUE, TFT_WHITE, 2);
 }
 
-// Desenha a lista completa de mensagens CAN
 void drawCanMessages() {
     tft.fillRect(0, 0, tft.width(), tft.height() - 60, TFT_BLACK);
     for (int i = 0; i < messageCount; i++) {
@@ -313,7 +286,6 @@ void drawCanMessages() {
     }
 }
 
-// Desenha uma única linha de mensagem CAN, com destaque para bytes alterados
 void drawSingleCanMessage(int index, int yOffset, const unsigned char* oldData) {
     tft.setTextDatum(TL_DATUM);
     tft.setTextSize(1);
@@ -328,14 +300,12 @@ void drawSingleCanMessage(int index, int yOffset, const unsigned char* oldData) 
 
     int xPos = 90;
     for (int j = 0; j < canMessages[index].len; j++) {
-        // Se a mensagem for a mesma e o byte atual mudou, usa a cor vermelha
         if (oldData != nullptr && canMessages[index].data[j] != oldData[j]) {
             tft.setTextColor(TFT_RED);
         } else {
             tft.setTextColor(idColor);
         }
 
-        // Converte e desenha o byte atual
         String byteString = "";
         if (canMessages[index].data[j] < 16) byteString += "0";
         byteString += String(canMessages[index].data[j], HEX);
@@ -343,7 +313,6 @@ void drawSingleCanMessage(int index, int yOffset, const unsigned char* oldData) 
         tft.drawString(byteString, xPos, yOffset);
         xPos += 15;
 
-        // Desenha o separador ":"
         if (j < canMessages[index].len - 1) {
             tft.setTextColor(idColor);
             tft.drawString(":", xPos, yOffset);
@@ -352,7 +321,6 @@ void drawSingleCanMessage(int index, int yOffset, const unsigned char* oldData) 
     }
 }
 
-// Desenha a tela de configurações
 void drawSetupScreen() {
     tft.fillScreen(TFT_BLACK);
     drawButton(10, tft.height() - 40, 80, 30, "Voltar", TFT_RED, TFT_WHITE, 2);
@@ -374,14 +342,12 @@ void drawSetupScreen() {
     tft.drawString("Ext", 160, 160);
 }
 
-// Desenha o teclado virtual na tela
 void drawKeyboard() {
     for (int i = 0; i < 18; i++) {
         drawButton(keys[i].x, keys[i].y, keys[i].w, keys[i].h, keys[i].label, TFT_DARKGREY, TFT_WHITE, 1);
     }
 }
 
-// Desenha a tela de envio de frames
 void drawSendScreen() {
     tft.fillScreen(TFT_BLACK);
     tft.setTextSize(2);
@@ -414,7 +380,6 @@ void drawSendScreen() {
     drawKeyboard();
 }
 
-// Trata os eventos de toque na tela
 void handleTouch() {
     if (ts.touched()) {
         TS_Point p = ts.getPoint();
@@ -423,7 +388,6 @@ void handleTouch() {
 
         if (isConnected) {
             if (currentScreen == MAIN_SCREEN) {
-                // Lógica de botões da tela principal
                 if (touch_x > 10 && touch_x < 90 && touch_y > tft.height() - 40 && touch_y < tft.height() - 10) {
                     currentScreen = SEND_SCREEN;
                     activeInput = NONE;
@@ -437,7 +401,6 @@ void handleTouch() {
                     clearCanMessages();
                 }
             } else if (currentScreen == SETUP_SCREEN) {
-                // Lógica de botões da tela de configurações
                 if (touch_x > 10 && touch_x < 90 && touch_y > tft.height() - 40 && touch_y < tft.height() - 10) {
                     currentScreen = MAIN_SCREEN;
                     drawMainScreen();
@@ -466,7 +429,6 @@ void handleTouch() {
                     sendLedCommand(true);
                 }
             } else if (currentScreen == SEND_SCREEN) {
-                // Lógica de botões e teclado da tela de envio
                 if (touch_x > 10 && touch_x < 90 && touch_y > tft.height() - 40 && touch_y < tft.height() - 10) {
                     currentScreen = MAIN_SCREEN;
                     activeInput = NONE;
@@ -530,7 +492,6 @@ void handleTouch() {
     }
 }
 
-// Envia o frame CAN via Wi-Fi
 void sendCanFrameWifi() {
     String message = sendId + " ";
     for (int i = 0; i < 8; i++) {
@@ -547,25 +508,22 @@ void sendCanFrameWifi() {
     }
 }
 
-// Salva as configurações de velocidade e ID na memória flash
 void saveConfig() {
-    preferences.begin("can-config", false); // Inicia a Preferences para escrita
+    preferences.begin("can-config", false);
     preferences.putLong("canSpeed", canSpeed);
     preferences.putBool("isExtendedID", isExtendedID);
-    preferences.end(); // Fecha a Preferences
+    preferences.end();
     Serial.println("Configuracoes salvas.");
 }
 
-// Carrega as configurações de velocidade e ID da memória flash
 void loadConfig() {
-    preferences.begin("can-config", true); // Inicia a Preferences para leitura
-    canSpeed = preferences.getLong("canSpeed", 250000); // Carrega com valor padrão se não existir
+    preferences.begin("can-config", true);
+    canSpeed = preferences.getLong("canSpeed", 250000);
     isExtendedID = preferences.getBool("isExtendedID", false);
-    preferences.end(); // Fecha a Preferences
+    preferences.end();
     Serial.println("Configuracoes carregadas.");
 }
 
-// Função utilitária para desenhar botões
 void drawButton(int x, int y, int w, int h, const char* label, uint16_t bgColor, uint16_t borderColor, uint8_t textSize) {
     tft.fillRect(x, y, w, h, bgColor);
     tft.drawRect(x, y, w, h, borderColor);
@@ -575,13 +533,11 @@ void drawButton(int x, int y, int w, int h, const char* label, uint16_t bgColor,
     tft.drawString(label, x + w / 2, y + h / 2);
 }
 
-// Limpa a lista de mensagens CAN
 void clearCanMessages() {
     messageCount = 0;
     drawMainScreen();
 }
 
-// Envia um comando para ligar/desligar um LED
 void sendLedCommand(bool state) {
     if (client.connected()) {
         String command = "LED_D2 ";
@@ -594,7 +550,6 @@ void sendLedCommand(bool state) {
     }
 }
 
-// Envia um comando para alterar a velocidade do CAN
 void sendCanSpeedCommand(long speed) {
     if (client.connected()) {
         String command = "CAN_SPEED " + String(speed);
