@@ -25,8 +25,8 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", -10800, 60000);
 
 // Configuração do Telegram
-#define BOT_TOKEN "8483406161:AAHNJZBD9kaaXgP0173abnofAKi8HPfnL_s"
-#define CHAT_ID "7144771434"
+#define BOT_TOKEN "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+#define CHAT_ID "1234567890"
 WiFiClientSecure clientTelegram;
 UniversalTelegramBot bot(BOT_TOKEN, clientTelegram);
 long lastUpdateID = 0;
