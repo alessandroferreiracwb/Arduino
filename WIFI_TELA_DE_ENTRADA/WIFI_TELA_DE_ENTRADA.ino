@@ -27,6 +27,9 @@ const int touchMaxX = 3700;
 const int touchMinY = 600;
 const int touchMaxY = 3570;
 
+// DECLARAÇÃO GLOBAL DA VARIÁVEL TIMER
+hw_timer_t *timer = NULL; 
+
 /* Protótipos de funções */
 void lv_tick_isr();
 void my_disp_flush(lv_display_t *disp, const lv_area_t *area, unsigned char *color_p);
@@ -42,19 +45,22 @@ void scan_and_populate_dropdown();
 lv_obj_t *wifi_dropdown;
 lv_obj_t *password_field;
 lv_obj_t *status_label;
-lv_obj_t *selected_ssid_label; // Novo label para o SSID selecionado
+lv_obj_t *selected_ssid_label;
 lv_obj_t *kb;
 lv_obj_t *screen;
 
 void setup() {
     Serial.begin(115200);
 
-    /* Inicializa o timer para o LVGL */
-    hw_timer_t *timer = NULL;
-    timer = timerBegin(0, 80, true);
-    timerAttachInterrupt(timer, &lv_tick_isr, true);
-    timerAlarmWrite(timer, 1000, true);
-    timerAlarmEnable(timer);
+    // Defina a frequência em Hz (por exemplo, 1000 Hz)
+    const uint32_t timerFrequency = 1000000; // 1MHz
+
+    // Inicia o timer. O 'prescaler' agora é definido pela frequência.
+    timer = timerBegin(timerFrequency); 
+    // Define a função de interrupção (callback)
+    timerAttachInterrupt(timer, &lv_tick_isr);
+    // Define o valor do alarme (contador) e habilita o alarme (o segundo 'true' é para a repetição)
+    timerAlarm(timer, 1000, true, 0);
 
     /* Inicializa o SPI para o touchscreen */
     touchscreenSPI.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
@@ -198,7 +204,7 @@ void dropdown_event_handler(lv_event_t *e) {
         char buf[64];
         lv_dropdown_get_selected_str(obj, buf, sizeof(buf));
         lv_textarea_set_text(password_field, "");
-        lv_label_set_text(selected_ssid_label, buf); // <--- CORREÇÃO AQUI
+        lv_label_set_text(selected_ssid_label, buf);
         Serial.print("Rede selecionada na tela: ");
         Serial.println(buf);
     }
