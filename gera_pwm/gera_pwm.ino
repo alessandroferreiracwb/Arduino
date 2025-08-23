@@ -1,3 +1,4 @@
+// versao do ESP32 2.0.17
 #include "driver/ledc.h"
 
 // Define the PWM parameters
