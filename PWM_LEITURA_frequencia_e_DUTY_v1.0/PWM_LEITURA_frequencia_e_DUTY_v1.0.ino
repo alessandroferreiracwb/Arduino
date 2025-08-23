@@ -1,3 +1,4 @@
+// versao do ESP32 2.0.17
 #include <Arduino.h>
 
 #define PULSE_INPUT_PIN 27
