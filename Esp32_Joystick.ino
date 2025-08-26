@@ -1,13 +1,17 @@
-#include <WiFi.h>
-#include <WebSocketsServer.h>
-#include <ArduinoJson.h> // Certifique-se de ter a biblioteca ArduinoJson instalada
+/* Esse joystick funciona junto com Arduino-Frame_24_Joystick/websockt.html */
 
+
+#include <WiFi.h>  // ESP32 V. 3.0.0
+#include <WebSocketsServer.h>  // by  Markus Sattler 2.16.1
+#include <ArduinoJson.h>       // by Benoit Blanchon 7.4.2   
 // Substitua com suas credenciais de Wi-Fi
 char* ssid = "NRC-AP_Ext";         // Nome da sua rede Wi-Fi
 char* password = "Nevil-RC";    // Senha da sua rede Wi-Fi
 
 // Cria um objeto WebSocketsServer na porta 81 (porta padrão para WebSockets)
 WebSocketsServer webSocket = WebSocketsServer(81);
+
+
 
 // --- Definição da mesma estrutura do receptor ---
 typedef struct cockpitNevil {
@@ -417,6 +421,11 @@ void setup() {
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
   }
+
+   // --- Apenas mostra o IP se estiver conectado ---
+  Serial.println("\nWiFi Conectado! ✅");
+  Serial.print("Endereço IP: ");
+  Serial.println(WiFi.localIP());
 
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
