@@ -1,3 +1,4 @@
+// Arduino Micro/Leonardo
 #include <Arduino.h>
 
 // Definição da mesma estrutura do receptor (mantida inalterada)
@@ -449,3 +450,4 @@ void loop() {
   // O EMULATION_INTERVAL_MS já controla a velocidade da sequência.
   delay(50);
 }
+
