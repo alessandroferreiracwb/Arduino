@@ -77,6 +77,12 @@
       font-weight: bold; 
       color: #007bff; 
     }
+    .slider-value {
+      font-weight: bold;
+      margin-left: 10px;
+      min-width: 30px;
+      text-align: right;
+    }
   </style>
 </head>
 <body>
@@ -85,15 +91,38 @@
 
   <div class="container">
     <div class="joystick-panel">
-      <h2>Joystick Esquerdo</h2>
+      <h2>Eixos e Pedais</h2>
       <div class="joystick-axes">
-        <h3>Eixos</h3>
-        <div class="slider-container"><label>Joy_Esq(Y):</label><input type="range" id="jp_eixo1x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Joy_Esq(X):</label><input type="range" id="jp_eixo2x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Joy_Dir(Y):</label><input type="range" id="j2_eixo1x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Joy_Dir(X):</label><input type="range" id="j2_eixo2x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Pedal_1:</label><input type="range" id="jp_eixo6x" min="-100" max="100" value="0"></div>
-        <div class="slider-container"><label>Pedal_2:</label><input type="range" id="jp_eixo7x" min="-100" max="100" value="0"></div>
+        <div class="slider-container">
+          <label>Joy_Esq(Y):</label>
+          <input type="range" id="jp_eixo1x" min="-100" max="100" value="0">
+          <span id="val_jp_eixo1x" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>Joy_Esq(X):</label>
+          <input type="range" id="jp_eixo2x" min="-100" max="100" value="0">
+          <span id="val_jp_eixo2x" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>Joy_Dor(Y):</label>
+          <input type="range" id="j2_eixo1x" min="-100" max="100" value="0">
+          <span id="val_j2_eixo1x" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>Joy_Dor(X):</label>
+          <input type="range" id="j2_eixo2x" min="-100" max="100" value="0">
+          <span id="val_j2_eixo2x" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>Pedal____1:</label>
+          <input type="range" id="jp_eixo6x" min="-100" max="100" value="0">
+          <span id="val_jp_eixo6x" class="slider-value">0</span>
+        </div>
+        <div class="slider-container">
+          <label>Pedal____2:</label>
+          <input type="range" id="jp_eixo7x" min="-100" max="100" value="0">
+          <span id="val_jp_eixo7x" class="slider-value">0</span>
+        </div>
       </div>
       <div class="joystick-buttons">
         <h3>Botoes</h3>
@@ -122,7 +151,6 @@
 
   <script>
     // IMPORTANTE: SUBSTITUA 'SEU_IP_DO_ESP32' PELO ENDEREÇO IP REAL DO SEU ESP32
-    // Exemplo: var gateway = `ws://192.168.1.100:81/`;
     var gateway = `ws://10.0.0.11:81/`; 
     
     var websocket;
@@ -143,33 +171,57 @@
     function onOpen(event) {
       console.log('Conexão WebSocket aberta');
       document.getElementById('status').innerText = 'Conectado ao ESP32!';
-      sendData(); // Envia o estado inicial ao conectar
+      sendData(); 
     }
 
     function onClose(event) {
       console.log('Conexão WebSocket fechada');
       document.getElementById('status').innerText = 'Desconectado. Tentando reconectar...';
-      setTimeout(initWebSocket, 2000); // Tenta reconectar após 2 segundos
+      setTimeout(initWebSocket, 2000); 
     }
 
     function onMessage(event) {
       console.log("Mensagem do ESP32: " + event.data);
     }
 
+    // Função para mapear o valor do slider para o formato de "pontos" (0-31)
+    function mapToPoints(value) {
+      let absolute_value = Math.abs(value);
+      return Math.round(absolute_value / 100 * 31);
+    }
+
     // Função para coletar e enviar dados
     function sendData() {
+      // Cria um objeto para armazenar os dados dos eixos
+      let eixo_data = {
+          joyEsqY: parseFloat(document.getElementById('jp_eixo1x').value),
+          joyEsqX: parseFloat(document.getElementById('jp_eixo2x').value),
+          joyDirY: parseFloat(document.getElementById('j2_eixo1x').value),
+          joyDirX: parseFloat(document.getElementById('j2_eixo2x').value),
+          pedal1: parseFloat(document.getElementById('jp_eixo6x').value),
+          pedal2: parseFloat(document.getElementById('jp_eixo7x').value)
+      };
+
+      // Atualiza os valores de "pontos" na tela usando a nova função de mapeamento
+      document.getElementById('val_jp_eixo1x').innerText = mapToPoints(eixo_data.joyEsqY);
+      document.getElementById('val_jp_eixo2x').innerText = mapToPoints(eixo_data.joyEsqX);
+      document.getElementById('val_j2_eixo1x').innerText = mapToPoints(eixo_data.joyDirY);
+      document.getElementById('val_j2_eixo2x').innerText = mapToPoints(eixo_data.joyDirX);
+      document.getElementById('val_jp_eixo6x').innerText = mapToPoints(eixo_data.pedal1);
+      document.getElementById('val_jp_eixo7x').innerText = mapToPoints(eixo_data.pedal2);
+
       let data = {
         eixo_esq: {
-            y: parseFloat(document.getElementById('jp_eixo1x').value),
-            x: parseFloat(document.getElementById('jp_eixo2x').value)
+            y: eixo_data.joyEsqY,
+            x: eixo_data.joyEsqX
         },
         eixo_dir: {
-            y: parseFloat(document.getElementById('j2_eixo1x').value),
-            x: parseFloat(document.getElementById('j2_eixo2x').value)
+            y: eixo_data.joyDirY,
+            x: eixo_data.joyDirX
         },
         pedais: {
-            pedal1: parseFloat(document.getElementById('jp_eixo6x').value),
-            pedal2: parseFloat(document.getElementById('jp_eixo7x').value)
+            pedal1: eixo_data.pedal1,
+            pedal2: eixo_data.pedal2
         },
         botoes: {},
         teclas: {}
@@ -195,7 +247,7 @@
 
     // Adiciona listeners para os sliders (eixos)
     document.querySelectorAll('input[type="range"]').forEach(slider => {
-      slider.addEventListener('input', sendData); // Envia dados ao arrastar o slider
+      slider.addEventListener('input', sendData); 
     });
 
     // Adiciona listeners para os botões e teclas
@@ -216,6 +268,14 @@
 
     // Envia dados periodicamente para garantir que o ESP32 receba atualizações
     setInterval(sendData, 500);
+
+    // Atualiza os valores na tela quando a página carrega
+    window.addEventListener('load', updateSliderValues);
+
+    function updateSliderValues() {
+      // Simplesmente chama sendData() que já atualiza os valores na tela
+      sendData();
+    }
   </script>
 </body>
 </html>
