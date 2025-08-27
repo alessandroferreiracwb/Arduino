@@ -1,4 +1,5 @@
-/* Este código envia um frame de 16 bytes via Serial para um receptor. */
+/* Este código envia um frame de 16 bytes via Serial para um receptor.
+*/
 
 #include <WiFi.h>              // ESP32 V. 3.0.0
 #include <WebSocketsServer.h>  // by Markus Sattler 2.16.1
@@ -80,24 +81,14 @@ void buildCockpitNevilFrame(const cockpitNevil_t *_cockpit, uint8_t *data) {
   data[13] = 0xE7;
 
   // Bytes 14 e 15: CRC16 Modbus
-  uint16_t calculatedCrc = calculateCRC16(data, 14); // Calcula CRC dos bytes 0 a 13
-  data[14] = (uint8_t)(calculatedCrc >> 8);   // Byte alto do CRC (MSB)
-  data[15] = (uint8_t)(calculatedCrc & 0xFF); // Byte baixo do CRC (LSB)
+  uint16_t calculatedCrc = calculateCRC16(data, 14);
+  data[14] = (uint8_t)(calculatedCrc >> 8);
+  data[15] = (uint8_t)(calculatedCrc & 0xFF);
 }
 
 // --- Função principal para manipular eventos WebSocket ---
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   if (type == WStype_TEXT) {
-    //Serial.println("\n--- Enviando Frame de 16 bytes ---");
-   /* for (int i = 0; i < 16; i++) {
-        // Imprime o byte em formato hexadecimal com 2 dígitos
-        if (transmitBuffer[i] < 0x10) {
-            Serial.print("0");
-        }
-        Serial.print(transmitBuffer[i], HEX);
-        Serial.print(" ");
-    }
-    Serial.println(""); */
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, payload);
     if (error) return;
@@ -111,8 +102,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       bool positiveFlag = (value > 0);
       bool negativeFlag = (value < 0);
       
-      // Combina flags e ponto em um único byte
-      targetByte = (point & 0x1F) | ((positiveFlag ? 1 : 0) << 5) | ((negativeFlag ? 1 : 0) << 6);
+      // Combina flags e ponto para o formato do frame
+      targetByte = ((positiveFlag ? 1 : 0) << 0) | ((negativeFlag ? 1 : 0) << 1) | ((point & 0x1F) << 2);
     };
 
     // Mapeamento dos Eixos
