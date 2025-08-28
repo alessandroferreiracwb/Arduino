@@ -237,7 +237,7 @@
     <script>
     let port;
     let writer;
-    let sendInterval;
+    let sendLoopRunning = false;
     const axisStates = {};
     const lastSentAxisValues = {};
     const buttonStates = {};
@@ -298,14 +298,13 @@
         const absValue = Math.abs(value);
         const mappedValue = Math.round(absValue / 1000 * 63);
         let flags = 0;
-        // As flags são nos bits 0 e 1, não 6 e 7, como no seu parser original
         if (value > 0) {
-            flags |= 0b00000001; // bit 0 para Foward/Right
+            flags |= 0b00000001;
         } else if (value < 0) {
-            flags |= 0b00000010; // bit 1 para Backward/Left
+            flags |= 0b00000010;
         }
         
-        return mappedValue << 2 | flags;
+        return (mappedValue << 2) | flags;
     }
 
     function buttonsToBytes(prefix, count) {
@@ -347,7 +346,9 @@
     }
 
     async function sendData() {
-        if (!writer) return;
+        if (!writer) {
+            return;
+        }
         
         const dataToSend = new Uint8Array(16);
         
@@ -373,10 +374,10 @@
         if(buttonStates['joystick-buttons-7']) buttonByte9 |= (1 << 4);
         dataToSend[9] = buttonByte9;
 
-        const keypadButtonsBytes = buttonsToBytes('keypad-buttons', 23);
-        dataToSend[10] = keypadButtonsBytes[0];
-        dataToSend[11] = keypadButtonsBytes[1];
-        dataToSend[12] = keypadButtonsBytes[2];
+        const keypadBytes = buttonsToBytes('keypad-buttons', 23);
+        dataToSend[10] = keypadBytes[0];
+        dataToSend[11] = keypadBytes[1];
+        dataToSend[12] = keypadBytes[2];
 
         dataToSend[13] = 0xE7;
         
@@ -389,15 +390,11 @@
         await writer.write(dataToSend);
     }
     
-    function startPeriodicSend() {
-        if (!sendInterval) {
-            sendInterval = setInterval(sendData, 50);
+    async function sendLoop() {
+        if (port && writer) {
+            await sendData();
+            setTimeout(sendLoop, 200); // Envia a cada 200ms
         }
-    }
-
-    function stopPeriodicSend() {
-        clearInterval(sendInterval);
-        sendInterval = undefined;
     }
 
     connectButton.addEventListener('click', async () => {
@@ -407,7 +404,6 @@
             port = undefined;
             statusMessage.textContent = 'Desconectado';
             connectButton.textContent = 'Conectar com Arduino';
-            stopPeriodicSend();
             return;
         }
         try {
@@ -416,8 +412,7 @@
             writer = port.writable.getWriter();
             statusMessage.textContent = 'Conectado!';
             connectButton.textContent = 'Desconectar';
-            sendData();
-            startPeriodicSend();
+            sendLoop();
         } catch (error) {
             console.error('Falha na conexão:', error);
             statusMessage.textContent = 'Erro na conexão';
