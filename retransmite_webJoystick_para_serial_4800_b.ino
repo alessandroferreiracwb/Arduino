@@ -1,4 +1,4 @@
-// FUNCIONA COM ESP32
+// funciona no esp32
 #include <SPI.h>
 #include <string.h>
 
@@ -8,7 +8,6 @@
 const int ledPin = 2; 
 
 uint8_t bufferSerial[PACKET_SIZE];
-uint8_t lastReceivedBuffer[PACKET_SIZE];
 
 void setup(){
   pinMode(ledPin, OUTPUT);
@@ -16,8 +15,6 @@ void setup(){
 
   Serial.begin(4800); 
   Serial2.begin(4800);
-  
-  memset(lastReceivedBuffer, 0, PACKET_SIZE);
 }
 
 void loop(){
@@ -31,7 +28,6 @@ void loop(){
     
     uint8_t currentByte = Serial.read();
     
-    // Altera para 0xF0
     if (bufferIndex == 0 && currentByte != 0xF0) {
       continue;
     }
@@ -41,18 +37,16 @@ void loop(){
     lastReceiveTime = millis();
     
     if (bufferIndex == PACKET_SIZE) {
-      // Altera para 0xE7
       if (bufferSerial[13] == 0xE7) {
-        if (memcmp(bufferSerial, lastReceivedBuffer, PACKET_SIZE) != 0) {
-          digitalWrite(ledPin, HIGH);
-          
-          Serial2.write(bufferSerial, PACKET_SIZE);
-          
-          delay(20); 
-          digitalWrite(ledPin, LOW);
-          
-          memcpy(lastReceivedBuffer, bufferSerial, PACKET_SIZE);
-        }
+        
+        // Acende o LED
+        digitalWrite(ledPin, HIGH);
+        
+        // Envia o pacote de dados para o Arduino 2 através da Serial2
+        Serial2.write(bufferSerial, PACKET_SIZE);
+        
+        delay(20); 
+        digitalWrite(ledPin, LOW);
       }
       
       bufferIndex = 0;
