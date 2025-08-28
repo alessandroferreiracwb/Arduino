@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controlador de Joystick com Web Serial</title>
+    <style>
+        :root {
+            --background-color: #121212;
+            --surface-color: #1e1e1e;
+            --card-background: #2a2a2a;
+            --text-color: #e0e0e0;
+            --secondary-text-color: #aaa;
+            --primary-color: #bb86fc;
+            --primary-variant-color: #9e6ae0;
+            --accent-color: #03dac6;
+            --border-color: #333;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+            margin: 0;
+            box-sizing: border-box;
+        }
+        .connection-area {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        #connectButton {
+            font-size: 1.2em;
+            padding: 12px 25px;
+            border-radius: 8px;
+            border: none;
+            background-color: var(--primary-color);
+            color: var(--background-color);
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        #connectButton:hover {
+            background-color: var(--primary-variant-color);
+        }
+        #statusMessage {
+            margin-top: 15px;
+            color: var(--secondary-text-color);
+            background-color: var(--card-background);
+            border-radius: 5px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            min-height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .joysticks-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 40px;
+            flex-wrap: wrap;
+            width: 100%;
+            max-width: 1200px;
+        }
+        .joystick-container {
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            padding: 25px;
+            min-width: 380px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--border-color);
+            flex: 1;
+            max-width: 45%;
+            box-sizing: border-box;
+        }
+        h2 {
+            text-align: center;
+            margin-top: 0;
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 25px;
+        }
+        .axes-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .axis {
+            display: flex;
+            flex-direction: column;
+        }
+        .axis-label {
+            font-size: 0.9em;
+            color: var(--secondary-text-color);
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .axis-value {
+            font-weight: bold;
+            color: var(--text-color);
+            min-width: 45px;
+            text-align: right;
+        }
+        .slider-control {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .slider-control label {
+            width: 150px;
+            text-align: left;
+        }
+        .slider-control input[type="range"] {
+            -webkit-appearance: none;
+            width: calc(100% - 200px);
+            height: 10px;
+            background: #555;
+            outline: none;
+            border-radius: 5px;
+            margin: 0 10px;
+        }
+        .slider-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .buttons-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+            justify-items: center;
+            gap: 15px;
+        }
+        .button {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: #444;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: var(--text-color);
+            transition: background-color 0.1s ease, transform 0.1s ease, box-shadow 0.1s ease;
+            user-select: none;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+        }
+        .button.active {
+            background-color: var(--accent-color);
+            transform: scale(1.1);
+            box-shadow: 0 0 15px var(--accent-color), 0 0 5px var(--accent-color);
+        }
+        .debug-output {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            background-color: var(--card-background);
+            border-radius: 8px;
+            text-align: left;
+        }
+        @media (max-width: 900px) {
+            .joysticks-wrapper {
+                flex-direction: column;
+                align-items: center;
+            }
+            .joystick-container {
+                min-width: unset;
+                width: 90%;
+                max-width: 400px;
+            }
+            .axes-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-area">
+        <h1>Controlador de Joystick e Teclado</h1>
+        <button id="connectButton">Conectar com Arduino</button>
+        <p id="statusMessage">Por favor, clique para conectar.</p>
+    </div>
+    <main class="joysticks-wrapper">
+        <div class="joystick-container">
+            <h2>Eixos e Pedais</h2>
+            <div class="slider-control">
+                <label>Joy. Dir. X:</label>
+                <input type="range" id="rightJoystickX" min="-1000" max="1000" value="0">
+            </div>
+            <div class="slider-control">
+                <label>Joy. Dir. Y:</label>
+                <input type="range" id="rightJoystickY" min="-1000" max="1000" value="0">
+            </div>
+            <div class="slider-control">
+                <label>Joy. Esq. X:</label>
+                <input type="range" id="leftJoystickX" min="-1000" max="1000" value="0">
+            </div>
+            <div class="slider-control">
+                <label>Joy. Esq. Y:</label>
+                <input type="range" id="leftJoystickY" min="-1000" max="1000" value="0">
+            </div>
+            <div class="slider-control">
+                <label>Pedal Dir. Y:</label>
+                <input type="range" id="rightPedalY" min="-1000" max="1000" value="0">
+            </div>
+            <div class="slider-control">
+                <label>Pedal Esq. Y:</label>
+                <input type="range" id="leftPedalY" min="-1000" max="1000" value="0">
+            </div>
+        </div>
+        <div class="joystick-container">
+            <h2>Botões (8) e Teclas (24)</h2>
+            <h3>Botões</h3>
+            <div class="buttons-grid" id="joystick-buttons"></div>
+            <h3>Teclas</h3>
+            <div class="buttons-grid" id="keypad-buttons"></div>
+        </div>
+    </main>
+    <div class="debug-output">
+        <h3>Frame de Dados Enviado:</h3>
+        <p id="frameOutput">Aguardando conexão...</p>
+    </div>
+    <script>
+    let port;
+    let writer;
+    let sendInterval;
+    const axisStates = {};
+    const lastSentAxisValues = {};
+    const buttonStates = {};
+    const connectButton = document.getElementById('connectButton');
+    const statusMessage = document.getElementById('statusMessage');
+    const frameOutput = document.getElementById('frameOutput');
+    const POINTS = 20;
+
+    function quantizeValue(value) {
+        const range = 2000;
+        const step = range / (POINTS - 1);
+        return Math.round(value / step) * step;
+    }
+    
+    const sliderIds = ['rightJoystickX', 'rightJoystickY', 'leftJoystickX', 'leftJoystickY', 'rightPedalY', 'leftPedalY'];
+    sliderIds.forEach(id => {
+        const slider = document.getElementById(id);
+        axisStates[id] = 0;
+        lastSentAxisValues[id] = 0;
+        
+        slider.addEventListener('mouseup', () => {
+            slider.value = 0;
+            axisStates[id] = 0;
+            lastSentAxisValues[id] = 0;
+            sendData();
+        });
+        
+        slider.addEventListener('input', () => {
+            const val = quantizeValue(parseInt(slider.value));
+            if (val !== lastSentAxisValues[id]) {
+                axisStates[id] = val;
+                lastSentAxisValues[id] = val;
+                sendData();
+            }
+        });
+    });
+
+    function createButtons(containerId, count) {
+        const container = document.getElementById(containerId);
+        for (let i = 0; i < count; i++) {
+            const button = document.createElement('div');
+            button.className = 'button';
+            button.textContent = i + 1;
+            buttonStates[containerId + '-' + i] = false;
+            button.addEventListener('click', () => {
+                const buttonId = containerId + '-' + i;
+                buttonStates[buttonId] = !buttonStates[buttonId];
+                button.classList.toggle('active', buttonStates[buttonId]);
+                sendData();
+            });
+            container.appendChild(button);
+        }
+    }
+    createButtons('joystick-buttons', 8);
+    createButtons('keypad-buttons', 24);
+
+    function mapAxisValueAndFlags(value) {
+        const absValue = Math.abs(value);
+        const mappedValue = Math.round(absValue / 1000 * 63);
+        let flags = 0;
+        // As flags são nos bits 0 e 1, não 6 e 7, como no seu parser original
+        if (value > 0) {
+            flags |= 0b00000001; // bit 0 para Foward/Right
+        } else if (value < 0) {
+            flags |= 0b00000010; // bit 1 para Backward/Left
+        }
+        
+        return mappedValue << 2 | flags;
+    }
+
+    function buttonsToBytes(prefix, count) {
+        const bytes = new Uint8Array(Math.ceil(count / 8));
+        let byteIndex = 0;
+        let bitIndex = 0;
+        for (let i = 0; i < count; i++) {
+            if (buttonStates[prefix + '-' + i]) {
+                bytes[byteIndex] |= (1 << bitIndex);
+            }
+            bitIndex++;
+            if (bitIndex >= 8) {
+                bitIndex = 0;
+                byteIndex++;
+            }
+        }
+        return bytes;
+    }
+
+    function crc16(data, len) {
+        let crc = 0xFFFF;
+        for (let i = 0; i < len; i++) {
+            crc ^= data[i];
+            for (let bit = 0; bit < 8; bit++) {
+                if (crc & 0x0001) {
+                    crc = (crc >> 1) ^ 0xA001;
+                } else {
+                    crc >>= 1;
+                }
+            }
+        }
+        return crc;
+    }
+    
+    function frameToHex(frame) {
+        return Array.from(frame)
+            .map(b => b.toString(16).padStart(2, '0').toUpperCase())
+            .join(' ');
+    }
+
+    async function sendData() {
+        if (!writer) return;
+        
+        const dataToSend = new Uint8Array(16);
+        
+        dataToSend[0] = 0xF0;
+        dataToSend[1] = 0x00;
+        dataToSend[2] = 0x00;
+        
+        dataToSend[3] = mapAxisValueAndFlags(axisStates['leftJoystickY']);
+        dataToSend[4] = mapAxisValueAndFlags(axisStates['leftJoystickX']);
+        dataToSend[5] = mapAxisValueAndFlags(axisStates['rightJoystickY']);
+        dataToSend[6] = mapAxisValueAndFlags(axisStates['rightJoystickX']);
+        dataToSend[7] = mapAxisValueAndFlags(axisStates['leftPedalY']);
+        dataToSend[8] = mapAxisValueAndFlags(axisStates['rightPedalY']);
+
+        let buttonByte9 = 0;
+        if(buttonStates['joystick-buttons-0']) buttonByte9 |= (1 << 3);
+        if(buttonStates['joystick-buttons-1']) buttonByte9 |= (1 << 2);
+        if(buttonStates['joystick-buttons-2']) buttonByte9 |= (1 << 1);
+        if(buttonStates['joystick-buttons-3']) buttonByte9 |= (1 << 0);
+        if(buttonStates['joystick-buttons-4']) buttonByte9 |= (1 << 7);
+        if(buttonStates['joystick-buttons-5']) buttonByte9 |= (1 << 6);
+        if(buttonStates['joystick-buttons-6']) buttonByte9 |= (1 << 5);
+        if(buttonStates['joystick-buttons-7']) buttonByte9 |= (1 << 4);
+        dataToSend[9] = buttonByte9;
+
+        const keypadButtonsBytes = buttonsToBytes('keypad-buttons', 23);
+        dataToSend[10] = keypadButtonsBytes[0];
+        dataToSend[11] = keypadButtonsBytes[1];
+        dataToSend[12] = keypadButtonsBytes[2];
+
+        dataToSend[13] = 0xE7;
+        
+        const crc = crc16(dataToSend, 14); 
+        dataToSend[14] = (crc >> 8) & 0xFF;
+        dataToSend[15] = crc & 0xFF;
+        
+        frameOutput.textContent = frameToHex(dataToSend);
+
+        await writer.write(dataToSend);
+    }
+    
+    function startPeriodicSend() {
+        if (!sendInterval) {
+            sendInterval = setInterval(sendData, 50);
+        }
+    }
+
+    function stopPeriodicSend() {
+        clearInterval(sendInterval);
+        sendInterval = undefined;
+    }
+
+    connectButton.addEventListener('click', async () => {
+        if (port) {
+            await writer.close();
+            await port.close();
+            port = undefined;
+            statusMessage.textContent = 'Desconectado';
+            connectButton.textContent = 'Conectar com Arduino';
+            stopPeriodicSend();
+            return;
+        }
+        try {
+            port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 4800 });
+            writer = port.writable.getWriter();
+            statusMessage.textContent = 'Conectado!';
+            connectButton.textContent = 'Desconectar';
+            sendData();
+            startPeriodicSend();
+        } catch (error) {
+            console.error('Falha na conexão:', error);
+            statusMessage.textContent = 'Erro na conexão';
+        }
+    });
+    </script>
+</body>
+</html>
